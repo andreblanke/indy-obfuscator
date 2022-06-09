@@ -1,9 +1,7 @@
-package dev.blanke.indyobfuscator.javac;
+package dev.blanke.indyobfuscator.util;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
@@ -87,12 +85,12 @@ public final class InMemoryJavaFileManager extends ForwardingJavaFileManager<Jav
         }
 
         @Override
-        public OutputStream openOutputStream() {
+        public ByteArrayOutputStream openOutputStream() {
             return outputStream;
         }
 
         @Override
-        public InputStream openInputStream() {
+        public ByteArrayInputStream openInputStream() {
             return new ByteArrayInputStream(outputStream.toByteArray());
         }
     }

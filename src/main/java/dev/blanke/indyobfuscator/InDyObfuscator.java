@@ -61,7 +61,7 @@ public final class InDyObfuscator implements Callable<Integer> {
     @Override
     public Integer call() throws Exception {
         final var reader          = new ClassReader(new FileInputStream(input));
-        final var obfuscatedClass = obfuscate(reader, BOOTSTRAP_METHOD_HANDLE);
+        final var obfuscatedClass = obfuscate(reader);
 
         final byte[] obfuscatedClassBytes = obfuscatedClass.toByteArray();
         CheckClassAdapter.verify(new ClassReader(obfuscatedClassBytes), false, new PrintWriter(System.err));
@@ -69,7 +69,11 @@ public final class InDyObfuscator implements Callable<Integer> {
         return 0;
     }
 
-    private ClassWriter obfuscate(final ClassReader reader, final Handle bootstrapMethodHandle) {
+    ClassWriter obfuscate(final ClassReader reader) {
+        return obfuscate(reader, BOOTSTRAP_METHOD_HANDLE);
+    }
+
+    ClassWriter obfuscate(final ClassReader reader, final Handle bootstrapMethodHandle) {
         final var writer = new ClassWriter(reader, 0);
         // Expanded frames are required for LocalVariablesSorter.
         reader.accept(new ObfuscatingClassVisitor(Opcodes.ASM9, writer, symbolMapping, bootstrapMethodHandle),
