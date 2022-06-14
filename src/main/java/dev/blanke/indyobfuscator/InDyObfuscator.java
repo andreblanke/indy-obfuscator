@@ -2,12 +2,19 @@ package dev.blanke.indyobfuscator;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
+import java.io.PushbackInputStream;
 import java.lang.invoke.CallSite;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.nio.file.Files;
 import java.util.concurrent.Callable;
+import java.util.jar.Attributes.Name;
+import java.util.jar.JarInputStream;
+
+import org.jetbrains.annotations.Nullable;
 
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
@@ -74,29 +81,9 @@ public final class InDyObfuscator implements Callable<Integer> {
 
     @Override
     public Integer call() throws Exception {
-        final var reader = new ClassReader(new FileInputStream(input));
-        final var writer = new ClassWriter(reader, 0);
-
-        /*
-         * TODO: Use main class name in case of jar file obfuscation.
-         * TODO: Only add bootstrap method if we are processing the main class of a jar file.
-         */
-        bootstrapMethodHandle = new Handle(Opcodes.H_INVOKESTATIC, reader.getClassName(), BOOTSTRAP_METHOD_DEFAULT_NAME,
-            BOOTSTRAP_METHOD_DESCRIPTOR, false);
-        addBootstrapMethod(reader, writer);
-
-        obfuscate(reader, writer);
-
-        final byte[] classBytes = writer.toByteArray();
-        CheckClassAdapter.verify(new ClassReader(classBytes), false, new PrintWriter(System.err));
-        Files.write(getOutput().toPath(), classBytes);
-        return 0;
-    }
-
-    void obfuscate(final ClassReader reader, final ClassWriter writer) {
-        // Expanded frames are required for LocalVariablesSorter.
-        reader.accept(new ObfuscatingClassVisitor(Opcodes.ASM9, writer, symbolMapping, bootstrapMethodHandle),
-            ClassReader.EXPAND_FRAMES);
+        try (final var inputStream = new FileInputStream(input)) {
+            return InputType.determine(inputStream).handle(this, inputStream);
+        }
     }
 
     void addBootstrapMethod(final ClassReader reader, final ClassWriter writer) {
@@ -104,6 +91,16 @@ public final class InDyObfuscator implements Callable<Integer> {
         reader.accept(classVisitor, ClassReader.EXPAND_FRAMES);
 
         bootstrapMethodHandle = classVisitor.getBootstrapMethodHandle();
+    }
+
+    byte[] obfuscate(final ClassReader reader, final ClassWriter writer) {
+        // Expanded frames are required for LocalVariablesSorter.
+        reader.accept(new ObfuscatingClassVisitor(Opcodes.ASM9, writer, symbolMapping, bootstrapMethodHandle),
+            ClassReader.EXPAND_FRAMES);
+
+        final byte[] classBytes = writer.toByteArray();
+        CheckClassAdapter.verify(new ClassReader(classBytes), false, new PrintWriter(System.err));
+        return classBytes;
     }
 
     /**
@@ -122,5 +119,57 @@ public final class InDyObfuscator implements Callable<Integer> {
 
     public void setBootstrapMethodHandle(final Handle bootstrapMethodHandle) {
         this.bootstrapMethodHandle = bootstrapMethodHandle;
+    }
+
+    private enum InputType {
+
+        CLASS {
+            @Override
+            int handle(final InDyObfuscator obfuscator, final InputStream inputStream) throws IOException {
+                final var reader = new ClassReader(inputStream);
+                final var writer = new ClassWriter(reader, 0);
+
+                obfuscator.setBootstrapMethodHandle(new Handle(Opcodes.H_INVOKESTATIC, reader.getClassName(),
+                    BOOTSTRAP_METHOD_DEFAULT_NAME, BOOTSTRAP_METHOD_DESCRIPTOR, false));
+                obfuscator.addBootstrapMethod(reader, writer);
+
+                final byte[] classBytes = obfuscator.obfuscate(reader, writer);
+                Files.write(obfuscator.getOutput().toPath(), classBytes);
+                return 0;
+            }
+        },
+
+        JAR {
+            @Override
+            int handle(final InDyObfuscator obfuscator, final InputStream inputStream) throws IOException {
+                final var jarInputStream = new JarInputStream(inputStream);
+
+                final var bootstrapMethodOwner = getBootstrapMethodOwner(jarInputStream);
+                if (bootstrapMethodOwner == null) {
+                    // TODO: Handle missing Main-Class.
+                    return 1;
+                }
+
+                obfuscator.setBootstrapMethodHandle(new Handle(Opcodes.H_INVOKESTATIC, bootstrapMethodOwner,
+                    BOOTSTRAP_METHOD_DEFAULT_NAME, BOOTSTRAP_METHOD_DESCRIPTOR, false));
+                return 0;
+            }
+
+            private @Nullable String getBootstrapMethodOwner(final JarInputStream jarInputStream) {
+                return jarInputStream.getManifest().getMainAttributes().getValue(Name.MAIN_CLASS);
+            }
+        };
+
+        abstract int handle(InDyObfuscator obfuscator, InputStream inputStream) throws IOException;
+
+        public static InputType determine(final InputStream inputStream) throws IOException {
+            final var stream = new PushbackInputStream(inputStream);
+            final int magic  = stream.read();
+
+            // Check for the magic number of .class files and treat input as jar file if it is not a .class file.
+            final var inputType = (magic == 0xCAFEBABE) ? CLASS : JAR;
+            stream.unread(magic);
+            return inputType;
+        }
     }
 }
