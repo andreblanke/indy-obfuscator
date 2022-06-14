@@ -43,6 +43,14 @@ public final class InDyObfuscator implements Callable<Integer> {
         description = "Write obfuscated content to file instead of manipulating input in place")
     private File output;
 
+    @Option(
+        names       = { "--bootstrap-method-owner" },
+        description = """
+            Fully qualified name of a class from the jar file which should contain the bootstrap method.
+            Defaults to Main-Class of jar file if unspecified.""",
+        paramLabel  = "<fqcn>")
+    private String bootstrapMethodOwner;
+
     /**
      * A reference to the bootstrap method to which {@code invokedynamic} instructions delegate.
      *
@@ -114,6 +122,10 @@ public final class InDyObfuscator implements Callable<Integer> {
         return (output != null) ? output : input;
     }
 
+    public String getBootstrapMethodOwner() {
+        return bootstrapMethodOwner;
+    }
+
     public Handle getBootstrapMethodHandle() {
         return bootstrapMethodHandle;
     }
@@ -145,12 +157,12 @@ public final class InDyObfuscator implements Callable<Integer> {
             int obfuscate(final InDyObfuscator obfuscator) throws IOException {
                 final var jarFile = new JarFile(obfuscator.getInput());
 
-                final var bootstrapMethodOwner = getBootstrapMethodOwner(jarFile);
+                final var bootstrapMethodOwner = getBootstrapMethodOwner(obfuscator, jarFile);
                 if (bootstrapMethodOwner == null) {
-                    /*
-                     * TODO: Handle missing Main-Class attribute. Either abort and demand specification of bootstrap
-                     *       class owner on the command line or use a random class as owner.
-                     */
+                    System.err.println("""
+                        No 'Main-Class' attribute found in MANIFEST.MF.
+                        Please specify the bootstrap method owner manually using the --bootstrap-method-owner option.
+                        """);
                     return 1;
                 }
 
@@ -159,7 +171,10 @@ public final class InDyObfuscator implements Callable<Integer> {
                 return 0;
             }
 
-            private @Nullable String getBootstrapMethodOwner(final JarFile jarFile) throws IOException {
+            private @Nullable String getBootstrapMethodOwner(final InDyObfuscator obfuscator, final JarFile jarFile)
+                    throws IOException {
+                if (obfuscator.getBootstrapMethodOwner() != null)
+                    return obfuscator.getBootstrapMethodOwner();
                 return jarFile.getManifest().getMainAttributes().getValue(Name.MAIN_CLASS);
             }
         };
