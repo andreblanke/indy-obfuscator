@@ -1,4 +1,4 @@
-package dev.blanke.indyobfuscator;
+package dev.blanke.indyobfuscator.visitor;
 
 import java.util.Objects;
 import java.util.logging.Level;
@@ -7,12 +7,11 @@ import java.util.logging.Logger;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.commons.GeneratorAdapter;
 
 import dev.blanke.indyobfuscator.mapping.SymbolMapping;
 import dev.blanke.indyobfuscator.mapping.SymbolMapping.MethodIdentifier;
 
-class ObfuscatingMethodVisitor extends GeneratorAdapter {
+final class ObfuscatingMethodVisitor extends MethodVisitor {
 
     private final SymbolMapping symbolMapping;
 
@@ -20,10 +19,9 @@ class ObfuscatingMethodVisitor extends GeneratorAdapter {
 
     private static final Logger LOGGER = Logger.getLogger(ObfuscatingMethodVisitor.class.getName());
 
-    ObfuscatingMethodVisitor(final int api, final MethodVisitor methodVisitor, final int access, final String name,
-                             final String descriptor, final SymbolMapping symbolMapping,
+    ObfuscatingMethodVisitor(final int api, final MethodVisitor methodVisitor, final SymbolMapping symbolMapping,
                              final Handle bootstrapMethodHandle) {
-        super(api, methodVisitor, access, name, descriptor);
+        super(api, methodVisitor);
 
         this.symbolMapping         = Objects.requireNonNull(symbolMapping);
         this.bootstrapMethodHandle = Objects.requireNonNull(bootstrapMethodHandle);

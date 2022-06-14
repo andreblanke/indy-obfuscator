@@ -22,6 +22,8 @@ import picocli.CommandLine.Parameters;
 
 import dev.blanke.indyobfuscator.mapping.SequentialSymbolMapping;
 import dev.blanke.indyobfuscator.mapping.SymbolMapping;
+import dev.blanke.indyobfuscator.visitor.BootstrappingClassVisitor;
+import dev.blanke.indyobfuscator.visitor.ObfuscatingClassVisitor;
 
 public final class InDyObfuscator implements Callable<Integer> {
 
@@ -35,23 +37,35 @@ public final class InDyObfuscator implements Callable<Integer> {
         description = "Write obfuscated content to file instead of manipulating input in place")
     private File output;
 
-    // TODO: Properly implement SymbolMapping
+    /**
+     * A reference to the bootstrap method to which {@code invokedynamic} instructions delegate.
+     *
+     * The owner of the bootstrap method depends on the obfuscation taking place: if a class file is being obfuscated,
+     * the contained class is also the owner of the bootstrap method. In case a jar file is being obfuscated,
+     * the main class will be the owner.
+     *
+     * @see #BOOTSTRAP_METHOD_DESCRIPTOR
+     */
+    private Handle bootstrapMethodHandle;
+
     private final SymbolMapping symbolMapping = new SequentialSymbolMapping();
+
+    /**
+     * @implNote Make sure to update the test source code when changing this value.
+     */
+    static final String BOOTSTRAP_METHOD_DEFAULT_NAME = "bootstrap";
 
     /**
      * The method descriptor specifying the signature of the used bootstrap method.
      *
-     * @see #BOOTSTRAP_METHOD_HANDLE
+     * @see #bootstrapMethodHandle
      */
-    private static final String BOOTSTRAP_METHOD_DESCRIPTOR =
+    static final String BOOTSTRAP_METHOD_DESCRIPTOR =
         "(" + Type.getDescriptor(MethodHandles.Lookup.class)
             + Type.getDescriptor(String.class)     // invokedName
             + Type.getDescriptor(MethodType.class) // invokedType
             +
         ")" + Type.getDescriptor(CallSite.class);
-
-    private static final Handle BOOTSTRAP_METHOD_HANDLE =
-        new Handle(Opcodes.H_INVOKESTATIC, /* TODO */ "", /* TODO */ "", BOOTSTRAP_METHOD_DESCRIPTOR, false);
 
     public static void main(final String... args) {
         final int exitCode = new CommandLine(new InDyObfuscator()).execute(args);
@@ -60,25 +74,36 @@ public final class InDyObfuscator implements Callable<Integer> {
 
     @Override
     public Integer call() throws Exception {
-        final var reader          = new ClassReader(new FileInputStream(input));
-        final var obfuscatedClass = obfuscate(reader);
+        final var reader = new ClassReader(new FileInputStream(input));
+        final var writer = new ClassWriter(reader, 0);
 
-        final byte[] obfuscatedClassBytes = obfuscatedClass.toByteArray();
-        CheckClassAdapter.verify(new ClassReader(obfuscatedClassBytes), false, new PrintWriter(System.err));
-        Files.write(getOutput().toPath(), obfuscatedClassBytes);
+        /*
+         * TODO: Use main class name in case of jar file obfuscation.
+         * TODO: Only add bootstrap method if we are processing the main class of a jar file.
+         */
+        bootstrapMethodHandle = new Handle(Opcodes.H_INVOKESTATIC, reader.getClassName(), BOOTSTRAP_METHOD_DEFAULT_NAME,
+            BOOTSTRAP_METHOD_DESCRIPTOR, false);
+        addBootstrapMethod(reader, writer);
+
+        obfuscate(reader, writer);
+
+        final byte[] classBytes = writer.toByteArray();
+        CheckClassAdapter.verify(new ClassReader(classBytes), false, new PrintWriter(System.err));
+        Files.write(getOutput().toPath(), classBytes);
         return 0;
     }
 
-    ClassWriter obfuscate(final ClassReader reader) {
-        return obfuscate(reader, BOOTSTRAP_METHOD_HANDLE);
-    }
-
-    ClassWriter obfuscate(final ClassReader reader, final Handle bootstrapMethodHandle) {
-        final var writer = new ClassWriter(reader, 0);
+    void obfuscate(final ClassReader reader, final ClassWriter writer) {
         // Expanded frames are required for LocalVariablesSorter.
         reader.accept(new ObfuscatingClassVisitor(Opcodes.ASM9, writer, symbolMapping, bootstrapMethodHandle),
             ClassReader.EXPAND_FRAMES);
-        return writer;
+    }
+
+    void addBootstrapMethod(final ClassReader reader, final ClassWriter writer) {
+        final var classVisitor = new BootstrappingClassVisitor(Opcodes.ASM9, writer, bootstrapMethodHandle);
+        reader.accept(classVisitor, ClassReader.EXPAND_FRAMES);
+
+        bootstrapMethodHandle = classVisitor.getBootstrapMethodHandle();
     }
 
     /**
@@ -89,5 +114,13 @@ public final class InDyObfuscator implements Callable<Integer> {
      */
     public File getOutput() {
         return (output != null) ? output : input;
+    }
+
+    public Handle getBootstrapMethodHandle() {
+        return bootstrapMethodHandle;
+    }
+
+    public void setBootstrapMethodHandle(final Handle bootstrapMethodHandle) {
+        this.bootstrapMethodHandle = bootstrapMethodHandle;
     }
 }
