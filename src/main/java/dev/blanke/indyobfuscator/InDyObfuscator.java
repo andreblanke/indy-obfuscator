@@ -1,18 +1,17 @@
 package dev.blanke.indyobfuscator;
 
+import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.PrintWriter;
-import java.io.PushbackInputStream;
 import java.lang.invoke.CallSite;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.nio.file.Files;
 import java.util.concurrent.Callable;
 import java.util.jar.Attributes.Name;
-import java.util.jar.JarInputStream;
+import java.util.jar.JarFile;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -81,9 +80,7 @@ public final class InDyObfuscator implements Callable<Integer> {
 
     @Override
     public Integer call() throws Exception {
-        try (final var inputStream = new FileInputStream(input)) {
-            return InputType.determine(inputStream).handle(this, inputStream);
-        }
+        return InputType.determine(input).obfuscate(this);
     }
 
     void addBootstrapMethod(final ClassReader reader, final ClassWriter writer) {
@@ -101,6 +98,10 @@ public final class InDyObfuscator implements Callable<Integer> {
         final byte[] classBytes = writer.toByteArray();
         CheckClassAdapter.verify(new ClassReader(classBytes), false, new PrintWriter(System.err));
         return classBytes;
+    }
+
+    public File getInput() {
+        return input;
     }
 
     /**
@@ -125,8 +126,8 @@ public final class InDyObfuscator implements Callable<Integer> {
 
         CLASS {
             @Override
-            int handle(final InDyObfuscator obfuscator, final InputStream inputStream) throws IOException {
-                final var reader = new ClassReader(inputStream);
+            int obfuscate(final InDyObfuscator obfuscator) throws IOException {
+                final var reader = new ClassReader(new FileInputStream(obfuscator.getInput()));
                 final var writer = new ClassWriter(reader, 0);
 
                 obfuscator.setBootstrapMethodHandle(new Handle(Opcodes.H_INVOKESTATIC, reader.getClassName(),
@@ -141,12 +142,15 @@ public final class InDyObfuscator implements Callable<Integer> {
 
         JAR {
             @Override
-            int handle(final InDyObfuscator obfuscator, final InputStream inputStream) throws IOException {
-                final var jarInputStream = new JarInputStream(inputStream);
+            int obfuscate(final InDyObfuscator obfuscator) throws IOException {
+                final var jarFile = new JarFile(obfuscator.getInput());
 
-                final var bootstrapMethodOwner = getBootstrapMethodOwner(jarInputStream);
+                final var bootstrapMethodOwner = getBootstrapMethodOwner(jarFile);
                 if (bootstrapMethodOwner == null) {
-                    // TODO: Handle missing Main-Class.
+                    /*
+                     * TODO: Handle missing Main-Class attribute. Either abort and demand specification of bootstrap
+                     *       class owner on the command line or use a random class as owner.
+                     */
                     return 1;
                 }
 
@@ -155,21 +159,18 @@ public final class InDyObfuscator implements Callable<Integer> {
                 return 0;
             }
 
-            private @Nullable String getBootstrapMethodOwner(final JarInputStream jarInputStream) {
-                return jarInputStream.getManifest().getMainAttributes().getValue(Name.MAIN_CLASS);
+            private @Nullable String getBootstrapMethodOwner(final JarFile jarFile) throws IOException {
+                return jarFile.getManifest().getMainAttributes().getValue(Name.MAIN_CLASS);
             }
         };
 
-        abstract int handle(InDyObfuscator obfuscator, InputStream inputStream) throws IOException;
+        abstract int obfuscate(InDyObfuscator obfuscator) throws IOException;
 
-        public static InputType determine(final InputStream inputStream) throws IOException {
-            final var stream = new PushbackInputStream(inputStream);
-            final int magic  = stream.read();
-
-            // Check for the magic number of .class files and treat input as jar file if it is not a .class file.
-            final var inputType = (magic == 0xCAFEBABE) ? CLASS : JAR;
-            stream.unread(magic);
-            return inputType;
+        public static InputType determine(final File file) throws IOException {
+            try (final var inputStream = new DataInputStream(new FileInputStream(file))) {
+                // Check for the magic number of .class files and treat input as jar file if it is not a .class file.
+                return (inputStream.readInt() == 0xCAFEBABE) ? CLASS : JAR;
+            }
         }
     }
 }
