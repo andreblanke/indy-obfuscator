@@ -65,7 +65,7 @@ public final class InDyObfuscator implements Callable<Integer> {
     private final SymbolMapping symbolMapping = new SequentialSymbolMapping();
 
     /**
-     * @implNote Make sure to update the test source code when changing this value.
+     * @implNote Make sure to update the source code passed to tests when changing this value.
      */
     static final String BOOTSTRAP_METHOD_DEFAULT_NAME = "bootstrap";
 
@@ -168,9 +168,61 @@ public final class InDyObfuscator implements Callable<Integer> {
 
                 obfuscator.setBootstrapMethodHandle(new Handle(Opcodes.H_INVOKESTATIC, bootstrapMethodOwner,
                     BOOTSTRAP_METHOD_DEFAULT_NAME, BOOTSTRAP_METHOD_DESCRIPTOR, false));
+
+                // Do the first pass over the jar file entries to find the owner of the bootstrap method.
+                /*
+                 * Drop the 'L' prefix, the ';' suffix and append ".class" to convert the internal class name to the
+                 * name of the class file.
+                 */
+                final var bootstrapMethodOwnerZipEntryName =
+                    bootstrapMethodOwner.substring(1, bootstrapMethodOwner.length() - 1) + ".class";
+                final var bootstrapMethodOwnerZipEntry =
+                    jarFile.stream()
+                        .filter(entry -> entry.getName().equals(bootstrapMethodOwnerZipEntryName))
+                        .findFirst()
+                        .orElseThrow();
+
+                // TODO: Save result of bootstrapMethodOwnerWriter.toByteArray().
+                final var bootstrapMethodOwnerReader =
+                    new ClassReader(jarFile.getInputStream(bootstrapMethodOwnerZipEntry));
+                final var bootstrapMethodOwnerWriter = new ClassWriter(bootstrapMethodOwnerReader, 0);
+                obfuscator.addBootstrapMethod(bootstrapMethodOwnerReader, bootstrapMethodOwnerWriter);
+
+                // Do the second pass over the jar file entries to obfuscate the jar file.
+                final var entries = jarFile.entries();
+                while (entries.hasMoreElements()) {
+                    final var entry = entries.nextElement();
+
+                    // TODO: Nested jars are currently not obfuscated. Probably out-of-scope for this project.
+                    if (!entry.getName().endsWith(".class"))
+                        continue;
+
+                    // Prefer traditional iteration over the Stream API here to allow unchecked exceptions.
+                    final var reader = new ClassReader(jarFile.getInputStream(entry));
+                    final var writer = new ClassWriter(reader, 0);
+                    obfuscator.obfuscate(reader, writer);
+
+                    // TODO: Save result of writer.toByteArray().
+                }
                 return 0;
             }
 
+            /**
+             * Returns the internal name of the class which should contain the bootstrap method, derived from either
+             * {@link InDyObfuscator#getBootstrapMethodOwnerFqcn()} or the value of the {@code Main-Class} attribute
+             * in the jar file's MANIFEST.MF.
+             *
+             * @param obfuscator The obfuscator instance containing the parsed command-line options.
+             *
+             * @param jarFile The jar file to be obfuscated.
+             *
+             * @return The internal name of the class which should contain the bootstrap method, or {@code null} if
+             *         the bootstrap method owner could not be determined due to a missing {@code Main-Class} attribute
+             *         and the user not specifying the bootstrap method owner manually using the
+             *         {@code --bootstrap-method-owner} command-line option.
+             *
+             * @throws IOException If an I/O error occurs trying to access the jar file's MANIFEST.MF.
+             */
             private @Nullable String getBootstrapMethodOwner(final InDyObfuscator obfuscator, final JarFile jarFile)
                     throws IOException {
                 var bootstrapMethodOwnerFqcn = obfuscator.getBootstrapMethodOwnerFqcn();
