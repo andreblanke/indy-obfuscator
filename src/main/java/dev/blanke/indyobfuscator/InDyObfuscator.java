@@ -49,7 +49,7 @@ public final class InDyObfuscator implements Callable<Integer> {
             Fully qualified name of a class from the jar file which should contain the bootstrap method.
             Defaults to Main-Class of jar file if unspecified.""",
         paramLabel  = "<fqcn>")
-    private String bootstrapMethodOwner;
+    private String bootstrapMethodOwnerFqcn;
 
     /**
      * A reference to the bootstrap method to which {@code invokedynamic} instructions delegate.
@@ -122,8 +122,8 @@ public final class InDyObfuscator implements Callable<Integer> {
         return (output != null) ? output : input;
     }
 
-    public String getBootstrapMethodOwner() {
-        return bootstrapMethodOwner;
+    public String getBootstrapMethodOwnerFqcn() {
+        return bootstrapMethodOwnerFqcn;
     }
 
     public Handle getBootstrapMethodHandle() {
@@ -159,10 +159,10 @@ public final class InDyObfuscator implements Callable<Integer> {
 
                 final var bootstrapMethodOwner = getBootstrapMethodOwner(obfuscator, jarFile);
                 if (bootstrapMethodOwner == null) {
-                    System.err.println("""
-                        No 'Main-Class' attribute found in MANIFEST.MF.
+                    System.err.printf("""
+                        No '%s' attribute found in MANIFEST.MF.
                         Please specify the bootstrap method owner manually using the --bootstrap-method-owner option.
-                        """);
+                        """, Name.MAIN_CLASS);
                     return 1;
                 }
 
@@ -173,9 +173,12 @@ public final class InDyObfuscator implements Callable<Integer> {
 
             private @Nullable String getBootstrapMethodOwner(final InDyObfuscator obfuscator, final JarFile jarFile)
                     throws IOException {
-                if (obfuscator.getBootstrapMethodOwner() != null)
-                    return obfuscator.getBootstrapMethodOwner();
-                return jarFile.getManifest().getMainAttributes().getValue(Name.MAIN_CLASS);
+                var bootstrapMethodOwnerFqcn = obfuscator.getBootstrapMethodOwnerFqcn();
+                if (bootstrapMethodOwnerFqcn == null)
+                    bootstrapMethodOwnerFqcn = jarFile.getManifest().getMainAttributes().getValue(Name.MAIN_CLASS);
+
+                return (bootstrapMethodOwnerFqcn != null)
+                    ? "L" + bootstrapMethodOwnerFqcn.replace('.', '/') + ";" : null;
             }
         };
 
