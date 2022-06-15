@@ -8,7 +8,13 @@ import java.io.PrintWriter;
 import java.lang.invoke.CallSite;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.jar.Attributes.Name;
 import java.util.jar.JarFile;
@@ -154,55 +160,58 @@ public final class InDyObfuscator implements Callable<Integer> {
 
         JAR {
             @Override
-            int obfuscate(final InDyObfuscator obfuscator) throws IOException {
-                final var jarFile = new JarFile(obfuscator.getInput());
+            int obfuscate(final InDyObfuscator obfuscator) throws IOException, URISyntaxException {
+                final var inputJar = new JarFile(obfuscator.getInput());
 
-                final var bootstrapMethodOwner = getBootstrapMethodOwner(obfuscator, jarFile);
-                if (bootstrapMethodOwner == null) {
-                    System.err.printf("""
-                        No '%s' attribute found in MANIFEST.MF.
-                        Please specify the bootstrap method owner manually using the --bootstrap-method-owner option.
-                        """, Name.MAIN_CLASS);
-                    return 1;
-                }
+                final var outputUri = obfuscator.getOutput().toURI();
+                try (final var outputFS = FileSystems.newFileSystem(
+                        new URI("jar:" + outputUri.getScheme(), outputUri.getPath(), null), Map.of("create", "true"))) {
+                    // Do a first pass over the jar file entries to find the owner of the bootstrap method.
+                    if (!addBootstrapMethod(obfuscator, inputJar, outputFS))
+                        return 1;
 
-                obfuscator.setBootstrapMethodHandle(new Handle(Opcodes.H_INVOKESTATIC, bootstrapMethodOwner,
-                    BOOTSTRAP_METHOD_DEFAULT_NAME, BOOTSTRAP_METHOD_DESCRIPTOR, false));
+                    /*
+                     * Do a second pass over the jar file entries for the actual obfuscation of classes.
+                     *
+                     * Prefer traditional iteration over the Stream API here to allow unchecked exceptions.
+                     */
+                    final var entries = inputJar.entries();
+                    while (entries.hasMoreElements()) {
+                        final var entry     = entries.nextElement();
+                        final var entryPath = outputFS.getPath(entry.getName());
 
-                // Do the first pass over the jar file entries to find the owner of the bootstrap method.
-                /*
-                 * Drop the 'L' prefix, the ';' suffix and append ".class" to convert the internal class name to the
-                 * name of the class file.
-                 */
-                final var bootstrapMethodOwnerZipEntryName =
-                    bootstrapMethodOwner.substring(1, bootstrapMethodOwner.length() - 1) + ".class";
-                final var bootstrapMethodOwnerZipEntry =
-                    jarFile.stream()
-                        .filter(entry -> entry.getName().equals(bootstrapMethodOwnerZipEntryName))
-                        .findFirst()
-                        .orElseThrow();
+                        /*
+                         * Take no action for directories, as they might be processed after their contained files,
+                         * in which case the directory will already have been created inside outputFS.
+                         */
+                        if (entry.isDirectory())
+                            continue;
 
-                // TODO: Save result of bootstrapMethodOwnerWriter.toByteArray().
-                final var bootstrapMethodOwnerReader =
-                    new ClassReader(jarFile.getInputStream(bootstrapMethodOwnerZipEntry));
-                final var bootstrapMethodOwnerWriter = new ClassWriter(bootstrapMethodOwnerReader, 0);
-                obfuscator.addBootstrapMethod(bootstrapMethodOwnerReader, bootstrapMethodOwnerWriter);
+                        /*
+                         * Create the directory which will contain the output files. The parent might be null if the
+                         * entry is located in the root of the jar file, in which case no directory needs to be created.
+                         */
+                        final var parent = entryPath.getParent();
+                        if (parent != null)
+                            Files.createDirectories(parent);
 
-                // Do the second pass over the jar file entries to obfuscate the jar file.
-                final var entries = jarFile.entries();
-                while (entries.hasMoreElements()) {
-                    final var entry = entries.nextElement();
+                        if (!entry.getName().endsWith(".class")) {
+                            // Copy non-class resources to the outputFS unmodified.
+                            Files.copy(inputJar.getInputStream(entry), entryPath, StandardCopyOption.REPLACE_EXISTING);
+                            continue;
+                        }
 
-                    // TODO: Nested jars are currently not obfuscated. Probably out-of-scope for this project.
-                    if (!entry.getName().endsWith(".class"))
-                        continue;
+                        /*
+                         * TODO: Currently, only class files are obfuscated while nested jar files are copied as-is.
+                         *       The obfuscation of nested jar files is probably out-of-scope for this proof-of-concept
+                         *       implementation.
+                         */
+                        final var reader = new ClassReader(inputJar.getInputStream(entry));
+                        final var writer = new ClassWriter(reader, 0);
+                        obfuscator.obfuscate(reader, writer);
 
-                    // Prefer traditional iteration over the Stream API here to allow unchecked exceptions.
-                    final var reader = new ClassReader(jarFile.getInputStream(entry));
-                    final var writer = new ClassWriter(reader, 0);
-                    obfuscator.obfuscate(reader, writer);
-
-                    // TODO: Save result of writer.toByteArray().
+                        Files.write(entryPath, writer.toByteArray());
+                    }
                 }
                 return 0;
             }
@@ -232,9 +241,72 @@ public final class InDyObfuscator implements Callable<Integer> {
                 return (bootstrapMethodOwnerFqcn != null)
                     ? "L" + bootstrapMethodOwnerFqcn.replace('.', '/') + ";" : null;
             }
+
+            /**
+             * Determines the class inside the provided {@code inputJar} which should be the owner of the bootstrap
+             * method, modifies that class to include the bootstrap method alongside library loading code, and writes
+             * the transformed class to the {@code outputFS}.
+             *
+             * @param obfuscator The obfuscator instance containing the parsed command-line options along with the
+             *                   bootstrap method {@link Handle} describing the bootstrap method to be added.
+             *                   The bootstrap method handle will be adjusted by this method via
+             *                   {@link InDyObfuscator#setBootstrapMethodHandle(Handle)} if a conflicting method is
+             *                   already present.
+             *
+             * @param inputJar The jar file to be obfuscated. If no owner for the bootstrap method is specified manually
+             *                 via the {@code --bootstrap-method-owner} command-line option, the {@code Main-Class}
+             *                 manifest attribute will be used to determine the owner, if present.
+             *
+             * @param outputFS The file system to which the transformed class will be written.
+             *
+             * @return {@code true} if the owner of the bootstrap method was successfully determined (via either
+             *         {@link InDyObfuscator#getBootstrapMethodOwnerFqcn()} or the {@code inputJar}'s {@code Main-Class}
+             *         manifest attribute) and the bootstrap method was successfully added to the class, {@code false}
+             *         otherwise.
+             *
+             * @throws IOException If reading from the {@code inputJar} or writing to the {@code outputFS} failed.
+             */
+            private boolean addBootstrapMethod(final InDyObfuscator obfuscator,
+                                               final JarFile        inputJar,
+                                               final FileSystem     outputFS) throws IOException {
+                final var bootstrapMethodOwner = getBootstrapMethodOwner(obfuscator, inputJar);
+                if (bootstrapMethodOwner == null) {
+                    System.err.printf("""
+                        No '%s' attribute found in MANIFEST.MF.
+                        Please specify the bootstrap method owner manually using the --bootstrap-method-owner option.
+                        """, Name.MAIN_CLASS);
+                    return false;
+                }
+
+                obfuscator.setBootstrapMethodHandle(new Handle(Opcodes.H_INVOKESTATIC, bootstrapMethodOwner,
+                    BOOTSTRAP_METHOD_DEFAULT_NAME, BOOTSTRAP_METHOD_DESCRIPTOR, false));
+
+                /*
+                 * Drop the 'L' prefix, the ';' suffix and append ".class" to convert the internal class name to the
+                 * name of the class file.
+                 */
+                final var bootstrapMethodOwnerJarEntryName =
+                    bootstrapMethodOwner.substring(1, bootstrapMethodOwner.length() - 1) + ".class";
+                final var bootstrapMethodOwnerJarEntry =
+                    inputJar.stream()
+                        .filter(entry -> entry.getName().equals(bootstrapMethodOwnerJarEntryName))
+                        .findFirst()
+                        .orElseThrow();
+
+                final var bootstrapMethodOwnerReader =
+                    new ClassReader(inputJar.getInputStream(bootstrapMethodOwnerJarEntry));
+                final var bootstrapMethodOwnerWriter = new ClassWriter(bootstrapMethodOwnerReader, 0);
+                obfuscator.addBootstrapMethod(bootstrapMethodOwnerReader, bootstrapMethodOwnerWriter);
+
+                final var bootstrapMethodOwnerPath = outputFS.getPath(bootstrapMethodOwnerJarEntryName);
+                Files.createDirectories(bootstrapMethodOwnerPath.getParent());
+                Files.write(bootstrapMethodOwnerPath, bootstrapMethodOwnerWriter.toByteArray());
+
+                return true;
+            }
         };
 
-        abstract int obfuscate(InDyObfuscator obfuscator) throws IOException;
+        abstract int obfuscate(InDyObfuscator obfuscator) throws IOException, URISyntaxException;
 
         public static InputType determine(final File file) throws IOException {
             try (final var inputStream = new DataInputStream(new FileInputStream(file))) {
