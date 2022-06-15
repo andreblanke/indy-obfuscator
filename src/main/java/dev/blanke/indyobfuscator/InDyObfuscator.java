@@ -4,7 +4,6 @@ import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.lang.invoke.CallSite;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
@@ -26,7 +25,6 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.util.CheckClassAdapter;
 
 import picocli.CommandLine;
 import picocli.CommandLine.Option;
@@ -108,10 +106,7 @@ public final class InDyObfuscator implements Callable<Integer> {
         // Expanded frames are required for LocalVariablesSorter.
         reader.accept(new ObfuscatingClassVisitor(Opcodes.ASM9, writer, symbolMapping, bootstrapMethodHandle),
             ClassReader.EXPAND_FRAMES);
-
-        final byte[] classBytes = writer.toByteArray();
-        CheckClassAdapter.verify(new ClassReader(classBytes), false, new PrintWriter(System.err));
-        return classBytes;
+        return writer.toByteArray();
     }
 
     public File getInput() {
