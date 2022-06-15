@@ -44,12 +44,8 @@ final class ObfuscatingMethodVisitor extends MethodVisitor {
             /*
              * All invoke* instructions that allow access to the current object instance via 'this' must have that
              * parameter added to the descriptor.
-             *
-             * TODO: Check how to proceed with INVOKESPECIAL instructions. Should be grouped along with INVOKEVIRTUAL
-             *       and INVOKEINTERFACE (due to access to 'this') but does it really make sense to obfuscate?
-             *       See notes in the research paper about constructors.
              */
-            case Opcodes.INVOKESPECIAL, Opcodes.INVOKEVIRTUAL, Opcodes.INVOKEINTERFACE -> {
+            case Opcodes.INVOKEVIRTUAL, Opcodes.INVOKEINTERFACE -> {
                 final String ownerDescriptor =
                     (owner.startsWith("["))
                         // owner is already correct for arrays, i.e. of the form "[Ljava/lang/Object;".
@@ -60,6 +56,26 @@ final class ObfuscatingMethodVisitor extends MethodVisitor {
                          */
                         : "L" + owner + ";";
                 invokeDynamicDescriptor = '(' + ownerDescriptor + descriptor.substring(1);
+            }
+            /*
+             * TODO: Consider adding an option to opt-in to obfuscation of INVOKESPECIAL instructions.
+             *
+             * INVOKESPECIAL should be grouped along with INVOKEVIRTUAL and INVOKEINTERFACE (due to access to 'this')
+             * but replacing INVOKESPECIAL instructions with INVOKEDYNAMIC ones would cause bytecode verification to
+             * fail.
+             *
+             * The bytecode verification failures can be circumvented using the -Xverify:none or -noverify JVM
+             * command-line arguments. These have, however, been deprecated in Java 13 and will be removed in later
+             * versions (see https://bugs.openjdk.org/browse/JDK-8214719).
+             *
+             * The obfuscation effort is not weakened in a meaningful way by not obfuscating INVOKESPECIAL instructions
+             * "due to the fact that a parent class constructor can only have one constructor for the given set of
+             * argument types."
+             */
+            case Opcodes.INVOKESPECIAL -> {
+                // Don't obfuscate INVOKESPECIAL instructions for the time being.
+                super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
+                return;
             }
             default -> {
                 LOGGER.log(Level.WARNING, "Trying to obfuscate method with an unrecognized opcode ({0}). Skipping.",
