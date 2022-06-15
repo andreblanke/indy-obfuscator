@@ -192,9 +192,7 @@ public final class InDyObfuscator implements Callable<Integer> {
                 var bootstrapMethodOwnerFqcn = obfuscator.getBootstrapMethodOwnerFqcn();
                 if (bootstrapMethodOwnerFqcn == null)
                     bootstrapMethodOwnerFqcn = jarFile.getManifest().getMainAttributes().getValue(Name.MAIN_CLASS);
-
-                return (bootstrapMethodOwnerFqcn != null)
-                    ? "L" + bootstrapMethodOwnerFqcn.replace('.', '/') + ";" : null;
+                return (bootstrapMethodOwnerFqcn != null) ? bootstrapMethodOwnerFqcn.replace('.', '/') : null;
             }
 
             /**
@@ -236,12 +234,7 @@ public final class InDyObfuscator implements Callable<Integer> {
                 obfuscator.setBootstrapMethodHandle(new Handle(Opcodes.H_INVOKESTATIC, bootstrapMethodOwner,
                     BOOTSTRAP_METHOD_DEFAULT_NAME, BOOTSTRAP_METHOD_DESCRIPTOR, false));
 
-                /*
-                 * Drop the 'L' prefix, the ';' suffix and append ".class" to convert the internal class name to the
-                 * name of the class file.
-                 */
-                final var bootstrapMethodOwnerJarEntryName =
-                    bootstrapMethodOwner.substring(1, bootstrapMethodOwner.length() - 1) + ".class";
+                final var bootstrapMethodOwnerJarEntryName = bootstrapMethodOwner + ".class";
                 final var bootstrapMethodOwnerJarEntry =
                     inputJar.stream()
                         .filter(entry -> entry.getName().equals(bootstrapMethodOwnerJarEntryName))
