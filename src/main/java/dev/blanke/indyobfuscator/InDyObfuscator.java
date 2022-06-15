@@ -165,48 +165,8 @@ public final class InDyObfuscator implements Callable<Integer> {
                     if (!addBootstrapMethod(obfuscator, inputJar, outputFS))
                         return 1;
 
-                    /*
-                     * Do a second pass over the jar file entries for the actual obfuscation of classes.
-                     *
-                     * Prefer traditional iteration over the Stream API here to allow unchecked exceptions.
-                     */
-                    final var entries = inputJar.entries();
-                    while (entries.hasMoreElements()) {
-                        final var entry     = entries.nextElement();
-                        final var entryPath = outputFS.getPath(entry.getName());
-
-                        /*
-                         * Take no action for directories, as they might be processed after their contained files,
-                         * in which case the directory will already have been created inside outputFS.
-                         */
-                        if (entry.isDirectory())
-                            continue;
-
-                        /*
-                         * Create the directory which will contain the output files. The parent might be null if the
-                         * entry is located in the root of the jar file, in which case no directory needs to be created.
-                         */
-                        final var parent = entryPath.getParent();
-                        if (parent != null)
-                            Files.createDirectories(parent);
-
-                        if (!entry.getName().endsWith(".class")) {
-                            // Copy non-class resources to the outputFS unmodified.
-                            Files.copy(inputJar.getInputStream(entry), entryPath, StandardCopyOption.REPLACE_EXISTING);
-                            continue;
-                        }
-
-                        /*
-                         * TODO: Currently, only class files are obfuscated while nested jar files are copied as-is.
-                         *       The obfuscation of nested jar files is probably out-of-scope for this proof-of-concept
-                         *       implementation.
-                         */
-                        final var reader = new ClassReader(inputJar.getInputStream(entry));
-                        final var writer = new ClassWriter(reader, 0);
-                        obfuscator.obfuscate(reader, writer);
-
-                        Files.write(entryPath, writer.toByteArray());
-                    }
+                    // Do a second pass over the jar file entries for the actual obfuscation of classes.
+                    obfuscateJarEntries(obfuscator, inputJar, outputFS);
                 }
                 return 0;
             }
@@ -298,6 +258,50 @@ public final class InDyObfuscator implements Callable<Integer> {
                 Files.write(bootstrapMethodOwnerPath, bootstrapMethodOwnerWriter.toByteArray());
 
                 return true;
+            }
+
+            private void obfuscateJarEntries(final InDyObfuscator obfuscator,
+                                             final JarFile        inputJar,
+                                             final FileSystem     outputFS) throws IOException {
+                final var entries = inputJar.entries();
+
+                // Prefer traditional iteration over the Stream API here to allow unchecked exceptions.
+                while (entries.hasMoreElements()) {
+                    final var entry     = entries.nextElement();
+                    final var entryPath = outputFS.getPath(entry.getName());
+
+                    /*
+                     * Take no action for directories, as they might be processed after their contained files,
+                     * in which case the directory will already have been created inside outputFS.
+                     */
+                    if (entry.isDirectory())
+                        continue;
+
+                    /*
+                     * Create the directory which will contain the output files. The parent might be null if the
+                     * entry is located in the root of the jar file, in which case no directory needs to be created.
+                     */
+                    final var parent = entryPath.getParent();
+                    if (parent != null)
+                        Files.createDirectories(parent);
+
+                    if (!entry.getName().endsWith(".class")) {
+                        // Copy non-class resources to the outputFS unmodified.
+                        Files.copy(inputJar.getInputStream(entry), entryPath, StandardCopyOption.REPLACE_EXISTING);
+                        continue;
+                    }
+
+                    /*
+                     * TODO: Currently, only class files are obfuscated while nested jar files are copied as-is.
+                     *       The obfuscation of nested jar files is probably out-of-scope for this proof-of-concept
+                     *       implementation.
+                     */
+                    final var reader = new ClassReader(inputJar.getInputStream(entry));
+                    final var writer = new ClassWriter(reader, 0);
+                    obfuscator.obfuscate(reader, writer);
+
+                    Files.write(entryPath, writer.toByteArray());
+                }
             }
         };
 
