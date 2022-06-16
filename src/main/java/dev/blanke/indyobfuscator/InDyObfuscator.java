@@ -256,7 +256,7 @@ public final class InDyObfuscator implements Callable<Integer> {
              *
              * @throws IOException If an I/O error occurs trying to access the jar file's MANIFEST.MF.
              *
-             * @throws BootstrapMethodOwnerMissingException if the bootstrap method owner could not be determined due
+             * @throws BootstrapMethodOwnerMissingException If the bootstrap method owner could not be determined due
              *                                              to a missing {@code Main-Class} attribute and the user not
              *                                              specifying the bootstrap method owner manually using the
              *                                              {@code --bootstrap-method-owner} command-line option.
