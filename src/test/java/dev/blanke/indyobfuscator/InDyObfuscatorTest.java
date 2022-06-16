@@ -128,16 +128,8 @@ final class InDyObfuscatorTest {
                 }
             }
             """;
-        final var bootstrapClassNode = ClassReaders.compileAndTransform(source, obfuscator::addBootstrapMethod);
-
-        /*
-         * Assert that no bootstrap method with the default name has been created because a conflicting method already
-         * existed and log the new name picked for the bootstrap method.
-         */
-        assertNotEquals(InDyObfuscator.BOOTSTRAP_METHOD_DEFAULT_NAME, obfuscator.getBootstrapMethodHandle().getName());
-        System.out.println(obfuscator.getBootstrapMethodHandle().getName());
-
-        assertBootstrapMethodExists(bootstrapClassNode, obfuscator.getBootstrapMethodHandle());
+        assertThrows(BootstrapMethodConflictException.class, () ->
+            ClassReaders.compileAndTransform(source, obfuscator::addBootstrapMethod));
     }
 
     private static void assertLoadMethodInstructionExists(final InsnList instructions) {

@@ -1,8 +1,8 @@
 package dev.blanke.indyobfuscator.visitor;
 
 import java.util.Objects;
-import java.util.UUID;
 
+import dev.blanke.indyobfuscator.BootstrapMethodConflictException;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.MethodVisitor;
@@ -10,21 +10,6 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
 public final class BootstrappingClassVisitor extends ClassVisitor {
-
-    /**
-     * Whether a method with the same name and signature as the bootstrap method has been visited inside of
-     * {@link #visitMethod(int, String, String, String, String[])}, meaning that a conflicting method is already
-     * present inside the class we are visiting.
-     *
-     * If a conflicting method already exists, the {@link #bootstrapMethodHandle} is replaced by a {@link Handle}
-     * with a different name to resolve the conflict. For further processing, {@link ObfuscatingClassVisitor}s need to
-     * be passed the non-conflicting {@code Handle} which can be retrieved using {@link #getBootstrapMethodHandle()}.
-     *
-     * @see #visitMethod(int, String, String, String, String[])
-     * @see #visitEnd()
-     * @see #getBootstrapMethodHandle()
-     */
-    private boolean visitedBootstrapMethod;
 
     /**
      * Whether {@code <clinit>} has been visited inside of {@link #visitMethod(int, String, String, String, String[])},
@@ -41,7 +26,7 @@ public final class BootstrappingClassVisitor extends ClassVisitor {
      */
     private boolean visitedClinit;
 
-    private Handle bootstrapMethodHandle;
+    private final Handle bootstrapMethodHandle;
 
     /**
      * Constructs a new {@link BootstrappingClassVisitor}.
@@ -54,8 +39,7 @@ public final class BootstrappingClassVisitor extends ClassVisitor {
      *
      * @param bootstrapMethodHandle The {@link Handle} describing the bootstrap method which is intended to be created
      *                              inside the visited class. If a method with the same name and descriptor already
-     *                              exists, the name of the {@code Handle} is ignored and a different one retrievable
-     *                              via {@link #getBootstrapMethodHandle()} is used.
+     *                              exists, a {@link BootstrapMethodConflictException} is thrown.
      */
     public BootstrappingClassVisitor(final int api, final ClassVisitor classVisitor,
                                      final Handle bootstrapMethodHandle) {
@@ -69,10 +53,12 @@ public final class BootstrappingClassVisitor extends ClassVisitor {
                                      final String signature, final String[] exceptions) {
         /*
          * Check if we are currently visiting a method with the same name as the bootstrap method which we want to add
-         * to the class, in which case we have to rename our bootstrap method.
+         * to the class, in which case we throw an exception and inform the user to choose a different name for the
+         * bootstrap method.
          */
-        visitedBootstrapMethod |=
-            (name.equals(bootstrapMethodHandle.getName()) && descriptor.equals(bootstrapMethodHandle.getDesc()));
+        if (name.equals(bootstrapMethodHandle.getName()) && descriptor.equals(bootstrapMethodHandle.getDesc())) {
+            throw new BootstrapMethodConflictException();
+        }
 
         final boolean isClinit = name.equals("<clinit>");
         visitedClinit |= isClinit;
@@ -92,20 +78,6 @@ public final class BootstrappingClassVisitor extends ClassVisitor {
         }
 
         /*
-         * Resolve conflicting method names by appending a random UUID to the originally intended name of the bootstrap
-         * method. The use of a random UUID makes another conflict highly unlikely and produces a legal name according
-         * to JVMS §4.3.4.
-         */
-        if (visitedBootstrapMethod) {
-            bootstrapMethodHandle = new Handle(
-                bootstrapMethodHandle.getTag(),
-                bootstrapMethodHandle.getOwner(),
-                bootstrapMethodHandle.getName() + UUID.randomUUID(),
-                bootstrapMethodHandle.getDesc(),
-                bootstrapMethodHandle.isInterface());
-        }
-
-        /*
          * Create the public, static, native, and synthetic bootstrap method. No additional post-processing needs to be
          * done to the returned MethodVisitor, as the created method is simply a stub on the Java side, due to being a
          * native method.
@@ -113,10 +85,6 @@ public final class BootstrappingClassVisitor extends ClassVisitor {
         super.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_NATIVE | Opcodes.ACC_SYNTHETIC,
             bootstrapMethodHandle.getName(), bootstrapMethodHandle.getDesc(), null, null);
         super.visitEnd();
-    }
-
-    public Handle getBootstrapMethodHandle() {
-        return bootstrapMethodHandle;
     }
 
     private static final class ClinitMethodVisitor extends MethodVisitor {
