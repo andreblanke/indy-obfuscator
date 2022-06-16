@@ -137,7 +137,7 @@ final class InDyObfuscatorTest {
             Arrays.stream(instructions.toArray())
                 .filter(instruction -> instruction.getOpcode() == Opcodes.INVOKESTATIC)
                 .map(MethodInsnNode.class::cast)
-                .filter(instruction -> instruction.owner.equals(Type.getDescriptor(System.class))
+                .filter(instruction -> instruction.owner.equals("java/lang/System")
                     && (instruction.name.equals("load")))
                 .toList();
         assertTrue(loadMethodInstructions.size() >= 1);

@@ -2,12 +2,13 @@ package dev.blanke.indyobfuscator.visitor;
 
 import java.util.Objects;
 
-import dev.blanke.indyobfuscator.BootstrapMethodConflictException;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
+
+import dev.blanke.indyobfuscator.BootstrapMethodConflictException;
 
 public final class BootstrappingClassVisitor extends ClassVisitor {
 
@@ -97,10 +98,10 @@ public final class BootstrappingClassVisitor extends ClassVisitor {
         public void visitCode() {
             super.visitCode();
 
-            // TODO
+            // TODO: Use absolute path to the library file.
             visitLdcInsn("test");
             visitMethodInsn(
-                Opcodes.INVOKESTATIC, Type.getDescriptor(System.class), "load", "(Ljava/lang/String;)V", false);
+                Opcodes.INVOKESTATIC, Type.getInternalName(System.class), "load", "(Ljava/lang/String;)V", false);
         }
     }
 }
