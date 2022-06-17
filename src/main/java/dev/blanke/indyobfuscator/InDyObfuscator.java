@@ -4,6 +4,7 @@ import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.lang.invoke.CallSite;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
@@ -30,6 +31,9 @@ import picocli.CommandLine.Parameters;
 
 import dev.blanke.indyobfuscator.mapping.SequentialSymbolMapping;
 import dev.blanke.indyobfuscator.mapping.SymbolMapping;
+import dev.blanke.indyobfuscator.template.DataModel;
+import dev.blanke.indyobfuscator.template.FreeMarkerTemplateEngine;
+import dev.blanke.indyobfuscator.template.TemplateEngine;
 import dev.blanke.indyobfuscator.visitor.BootstrappingClassVisitor;
 import dev.blanke.indyobfuscator.visitor.ObfuscatingClassVisitor;
 
@@ -46,22 +50,32 @@ public final class InDyObfuscator implements Callable<Integer> {
     private File output;
 
     @Option(
-        names       = { "--bootstrap-method-name" },
+        names       = { "--bsm-name", "--bootstrap-method-name" },
         description = """
             The name to use for the generated bootstrap method. May have to be changed if the owning class defines a
             conflicting method.
             Defaults to "bootstrap" if unspecified.
             """,
-        defaultValue = BOOTSTRAP_METHOD_DEFAULT_NAME)
+        defaultValue = BOOTSTRAP_METHOD_DEFAULT_NAME,
+        paramLabel   = "<identifier>")
     private String bootstrapMethodName;
 
     @Option(
-        names       = { "--bootstrap-method-owner" },
+        names       = { "--bsm-owner", "--bootstrap-method-owner" },
         description = """
             Fully qualified name of a class from the jar file which should contain the bootstrap method.
             Defaults to Main-Class of jar file if unspecified.""",
         paramLabel  = "<fqcn>")
     private String bootstrapMethodOwnerFqcn;
+
+    @Option(
+        names       = { "--bsm-template", "--bootstrap-method-template" },
+        description = """
+            Template file containing the native bootstrap method implementation.
+            The symbol mapping created during obfuscation will be passed to the template as parameter.
+            """,
+        paramLabel = "<template-file>")
+    private File bootstrapMethodTemplate;
 
     /**
      * A reference to the bootstrap method to which {@code invokedynamic} instructions delegate.
@@ -75,6 +89,8 @@ public final class InDyObfuscator implements Callable<Integer> {
     private Handle bootstrapMethodHandle;
 
     private final SymbolMapping symbolMapping = new SequentialSymbolMapping();
+
+    private final TemplateEngine templateEngine = new FreeMarkerTemplateEngine();
 
     /**
      * @implNote Make sure to update the source code passed to tests when changing this value.
@@ -101,10 +117,16 @@ public final class InDyObfuscator implements Callable<Integer> {
     @Override
     public Integer call() throws Exception {
         try {
-            return InputType.determine(input).obfuscate(this);
+            InputType.determine(input).obfuscate(this);
+
+            if (bootstrapMethodTemplate != null) {
+                templateEngine.process(bootstrapMethodTemplate, new DataModel(bootstrapMethodHandle, symbolMapping),
+                    new PrintWriter(System.out));
+            }
+            return 0;
         } catch (final BootstrapMethodOwnerMissingException exception) {
             System.err.printf("""
-                No '%s' attribute found in META-INF/MANIFEST.MF.
+                No '%s' attribute found inside the META-INF/MANIFEST.MF file.
                 Please specify the bootstrap method owner manually using the --bootstrap-method-owner option.
                 """, Name.MAIN_CLASS);
             return 1;
@@ -163,7 +185,7 @@ public final class InDyObfuscator implements Callable<Integer> {
 
         CLASS {
             @Override
-            int obfuscate(final InDyObfuscator obfuscator) throws IOException {
+            void obfuscate(final InDyObfuscator obfuscator) throws IOException {
                 final var reader = new ClassReader(new FileInputStream(obfuscator.getInput()));
                 final var writer = new ClassWriter(reader, 0);
 
@@ -173,13 +195,12 @@ public final class InDyObfuscator implements Callable<Integer> {
 
                 final byte[] classBytes = obfuscator.obfuscate(reader, writer);
                 Files.write(obfuscator.getOutput().toPath(), classBytes);
-                return 0;
             }
         },
 
         JAR {
             @Override
-            int obfuscate(final InDyObfuscator obfuscator)
+            void obfuscate(final InDyObfuscator obfuscator)
                     throws IOException, URISyntaxException, BootstrapMethodOwnerMissingException {
                 final var inputJar = new JarFile(obfuscator.getInput());
 
@@ -203,7 +224,6 @@ public final class InDyObfuscator implements Callable<Integer> {
                      */
                     addBootstrapMethod(obfuscator, inputJar, outputFS);
                 }
-                return 0;
             }
 
             /**
@@ -311,7 +331,7 @@ public final class InDyObfuscator implements Callable<Integer> {
             }
         };
 
-        abstract int obfuscate(InDyObfuscator obfuscator)
+        abstract void obfuscate(InDyObfuscator obfuscator)
             throws IOException, URISyntaxException, BootstrapMethodOwnerMissingException;
 
         public static InputType determine(final File file) throws IOException {
