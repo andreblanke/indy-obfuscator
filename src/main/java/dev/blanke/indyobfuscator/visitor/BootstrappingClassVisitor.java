@@ -1,5 +1,6 @@
 package dev.blanke.indyobfuscator.visitor;
 
+import java.io.File;
 import java.util.Objects;
 
 import org.objectweb.asm.ClassVisitor;
@@ -98,10 +99,35 @@ public final class BootstrappingClassVisitor extends ClassVisitor {
         public void visitCode() {
             super.visitCode();
 
-            // TODO: Use absolute path to the library file.
-            visitLdcInsn("test");
-            visitMethodInsn(
-                Opcodes.INVOKESTATIC, Type.getInternalName(System.class), "load", "(Ljava/lang/String;)V", false);
+            // Create and initialize a StringBuilder.
+            visitTypeInsn(Opcodes.NEW, Type.getInternalName(StringBuilder.class));
+            visitInsn(Opcodes.DUP);
+            visitMethodInsn(Opcodes.INVOKESPECIAL, Type.getInternalName(StringBuilder.class), "<init>", "()V", false);
+
+            // Append current working directory retrieved using System.getProperty("user.dir") to the StringBuilder.
+            visitLdcInsn("user.dir");
+            visitMethodInsn(Opcodes.INVOKESTATIC, Type.getInternalName(System.class), "getProperty",
+                "(Ljava/lang/String;)Ljava/lang/String;", false);
+            visitMethodInsn(Opcodes.INVOKEVIRTUAL, Type.getInternalName(StringBuilder.class), "append",
+                "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false);
+
+            // Append the path separator to the StringBuilder.
+            visitFieldInsn(Opcodes.GETSTATIC, Type.getInternalName(File.class), "separatorChar", "C");
+            visitMethodInsn(Opcodes.INVOKEVIRTUAL, Type.getInternalName(StringBuilder.class), "append",
+                "(C)Ljava/lang/StringBuilder;", false);
+
+            // Append the platform-specific library name retrieved from System.mapLibraryName to the StringBuilder.
+            visitLdcInsn("bootstrap");
+            visitMethodInsn(Opcodes.INVOKESTATIC, Type.getInternalName(System.class), "mapLibraryName",
+                "(Ljava/lang/String;)Ljava/lang/String;", false);
+            visitMethodInsn(Opcodes.INVOKEVIRTUAL, Type.getInternalName(StringBuilder.class), "append",
+                "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false);
+
+            // Invoke the StringBuilder.toString() method and pass the result to System.load.
+            visitMethodInsn(Opcodes.INVOKEVIRTUAL, Type.getInternalName(StringBuilder.class), "toString",
+                "()Ljava/lang/String;", false);
+            visitMethodInsn(Opcodes.INVOKESTATIC, Type.getInternalName(System.class), "load",
+                "(Ljava/lang/String;)V", false);
         }
     }
 }
