@@ -14,6 +14,15 @@ public final class ObfuscatingClassVisitor extends ClassVisitor {
 
     private final Handle bootstrapMethodHandle;
 
+    /**
+     * Minimum major version of classes to be able to use {@code invokedynamic} instructions. If a class has a lower
+     * major version, it must be changed to a value greater or equal to this one.
+     *
+     * @see #visit(int, int, String, String, String, String[])
+     * @see <a href="https://docs.oracle.com/javase/specs/jvms/se7/jvms7.pdf">JVMS 7</a>
+     */
+    private static final int MINIMUM_CLASS_VERSION = 51;
+
     public ObfuscatingClassVisitor(final int api, final ClassVisitor classVisitor, final SymbolMapping symbolMapping,
                                    final Handle bootstrapMethodHandle) {
         super(api, classVisitor);
@@ -25,7 +34,7 @@ public final class ObfuscatingClassVisitor extends ClassVisitor {
     @Override
     public void visit(final int version, final int access, final String name, final String signature,
                       final String superName, final String[] interfaces) {
-        super.visit(version, access, name, signature, superName, interfaces);
+        super.visit(Math.max(version, MINIMUM_CLASS_VERSION), access, name, signature, superName, interfaces);
     }
 
     @Override
