@@ -1,7 +1,12 @@
+# IntelliJ IDEA
 /.idea/*
 !/.idea/dictionaries
 
+# Processed bootstrap.c.ftl files
 /native/bootstrap.c
+# Shared libraries
+*.so
 
+# Maven
 /target/
 /dependency-reduced-pom.xml
