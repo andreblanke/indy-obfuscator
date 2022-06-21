@@ -222,7 +222,7 @@ public final class InDyObfuscator implements Callable<Integer> {
                      * the native implementation bootstrap method will be obfuscated as well, resulting in a circular
                      * dependency.
                      */
-                    addBootstrapMethod(obfuscator, inputJar, outputFS);
+                    addBootstrapMethod(obfuscator, outputFS);
                 }
             }
 
@@ -262,33 +262,25 @@ public final class InDyObfuscator implements Callable<Integer> {
              * @param obfuscator The obfuscator instance containing the parsed command-line options along with the
              *                   bootstrap method {@link Handle} describing the bootstrap method to be added.
              *
-             * @param inputJar The jar file to be obfuscated. If no owner for the bootstrap method is specified manually
-             *                 via the {@code --bootstrap-method-owner} command-line option, the {@code Main-Class}
-             *                 manifest attribute will be used to determine the owner, if present.
-             *
-             * @param outputFS The file system to which the transformed class will be written.
+             * @param outputFS The file system containing the obfuscated class files along with the already obfuscated
+             *                 bootstrap method owner class. The file system serves both as input as well as output
+             *                 If no owner for the bootstrap method is specified manually via the
+             *                 {@code --bootstrap-method-owner} command-line option, the {@code Main-Class} manifest
+             *                 attribute will be used to determine the owner, if present.
              *
              * @throws IOException If reading from the {@code inputJar} or writing to the {@code outputFS} failed.
              */
             private void addBootstrapMethod(final InDyObfuscator obfuscator,
-                                            final JarFile        inputJar,
                                             final FileSystem     outputFS) throws IOException {
-                final var bootstrapMethodOwnerJarEntryName =
-                    obfuscator.getBootstrapMethodHandle().getOwner() + ".class";
-                final var bootstrapMethodOwnerJarEntry =
-                    inputJar.stream()
-                        .filter(entry -> entry.getName().equals(bootstrapMethodOwnerJarEntryName))
-                        .findFirst()
-                        .orElseThrow();
+                final var bootstrapMethodOwnerPath =
+                    outputFS.getPath(obfuscator.getBootstrapMethodHandle().getOwner() + ".class");
+                try (final var bootstrapMethodOwnerInputStream = Files.newInputStream(bootstrapMethodOwnerPath)) {
+                    final var reader = new ClassReader(bootstrapMethodOwnerInputStream);
+                    final var writer = new ClassWriter(reader, 0);
+                    obfuscator.addBootstrapMethod(reader, writer);
 
-                final var bootstrapMethodOwnerReader =
-                    new ClassReader(inputJar.getInputStream(bootstrapMethodOwnerJarEntry));
-                final var bootstrapMethodOwnerWriter = new ClassWriter(bootstrapMethodOwnerReader, 0);
-                obfuscator.addBootstrapMethod(bootstrapMethodOwnerReader, bootstrapMethodOwnerWriter);
-
-                final var bootstrapMethodOwnerPath = outputFS.getPath(bootstrapMethodOwnerJarEntryName);
-                Files.createDirectories(bootstrapMethodOwnerPath.getParent());
-                Files.write(bootstrapMethodOwnerPath, bootstrapMethodOwnerWriter.toByteArray());
+                    Files.write(bootstrapMethodOwnerPath, writer.toByteArray());
+                }
             }
 
             private void obfuscateJarEntries(final InDyObfuscator obfuscator,
