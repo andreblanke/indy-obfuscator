@@ -18,18 +18,20 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved)
         return JNI_ERR;
     }
 
+    // NewGlobalRef is used to prevent garbage collection of the instances.
+
     ConstantCallSite = (*env)->NewGlobalRef(env,
-        (*env)->FindClass(env, "java/lang/invoke/ConstantCallSite")); // Prevents garbage collection of the instance.
-    ConstantCallSiteInit = (*env)->NewGlobalRef(env,
-        (*env)->GetMethodID(env, ConstantCallSite, "<init>", "(Ljava/lang/invoke/MethodHandle;)V"));
+        (jobject) (*env)->FindClass(env, "java/lang/invoke/ConstantCallSite"));
+    ConstantCallSiteInit = (jmethodID) (*env)->NewGlobalRef(env,
+        (jobject) (*env)->GetMethodID(env, ConstantCallSite, "<init>", "(Ljava/lang/invoke/MethodHandle;)V"));
 
     jclass lookup = (*env)->FindClass(env, "java/lang/invoke/MethodHandles$Lookup");
 
-    LookupFindVirtual = (*env)->NewGlobalRef(env,
-        (*env)->GetMethodID(env, lookup, "findVirtual",
+    LookupFindVirtual = (jmethodID) (*env)->NewGlobalRef(env,
+        (jobject) (*env)->GetMethodID(env, lookup, "findVirtual",
             "(Ljava/lang/Class;Ljava/lang/String;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/MethodHandle;"));
-    LookupFindStatic = (*env)->NewGlobalRef(env,
-        (*env)->GetMethodID(env, lookup, "findStatic",
+    LookupFindStatic = (jmethodID) (*env)->NewGlobalRef(env,
+        (jobject) (*env)->GetMethodID(env, lookup, "findStatic",
             "(Ljava/lang/Class;Ljava/lang/String;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/MethodHandle;"));
     return JNI_VERSION_1_8;
 }
