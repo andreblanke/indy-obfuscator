@@ -1,5 +1,7 @@
 /.idea/*
 !/.idea/dictionaries
 
+/native/bootstrap.c
+
 /target/
 /dependency-reduced-pom.xml

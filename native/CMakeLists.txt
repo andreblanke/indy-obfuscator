@@ -4,5 +4,5 @@ project(bootstrap)
 
 find_package(JNI REQUIRED)
 
-add_library(bootstrap bootstrap.c)
+add_library(bootstrap SHARED bootstrap.c)
 target_include_directories(bootstrap PRIVATE ${JNI_INCLUDE_DIRS})
