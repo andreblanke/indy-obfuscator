@@ -8,8 +8,8 @@ import org.objectweb.asm.Handle;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
+import dev.blanke.indyobfuscator.mapping.MethodIdentifier;
 import dev.blanke.indyobfuscator.mapping.SymbolMapping;
-import dev.blanke.indyobfuscator.mapping.SymbolMapping.MethodIdentifier;
 
 final class ObfuscatingMethodVisitor extends MethodVisitor {
 
