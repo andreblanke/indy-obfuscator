@@ -274,13 +274,14 @@ public final class InDyObfuscator implements Callable<Integer> {
                                             final FileSystem     outputFS) throws IOException {
                 final var bootstrapMethodOwnerPath =
                     outputFS.getPath(obfuscator.getBootstrapMethodHandle().getOwner() + ".class");
+
+                final ClassWriter writer;
                 try (final var bootstrapMethodOwnerInputStream = Files.newInputStream(bootstrapMethodOwnerPath)) {
                     final var reader = new ClassReader(bootstrapMethodOwnerInputStream);
-                    final var writer = new ClassWriter(reader, 0);
-                    obfuscator.addBootstrapMethod(reader, writer);
-
-                    Files.write(bootstrapMethodOwnerPath, writer.toByteArray());
+                    obfuscator.addBootstrapMethod(reader, (writer = new ClassWriter(reader, 0)));
                 }
+                // Close InputStream before writing to the FileSystem just to be safe.
+                Files.write(bootstrapMethodOwnerPath, writer.toByteArray());
             }
 
             private void obfuscateJarEntries(final InDyObfuscator obfuscator,
