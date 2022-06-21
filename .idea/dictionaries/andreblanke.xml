@@ -8,6 +8,7 @@
       <w>invokestatic</w>
       <w>invokevirtual</w>
       <w>jclass</w>
+      <w>jmethod</w>
       <w>jnicall</w>
       <w>jniexport</w>
       <w>jobject</w>

@@ -84,7 +84,7 @@ final class ObfuscatingMethodVisitor extends MethodVisitor {
                 return;
             }
         }
-        final var invokeDynamicName = symbolMapping.getName(new MethodIdentifier(owner, name, descriptor));
+        final var invokeDynamicName = symbolMapping.getName(new MethodIdentifier(owner, name, descriptor, opcode));
         super.visitInvokeDynamicInsn(invokeDynamicName, invokeDynamicDescriptor, bootstrapMethodHandle);
     }
 }

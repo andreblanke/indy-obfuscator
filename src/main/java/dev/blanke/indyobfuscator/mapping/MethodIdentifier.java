@@ -10,4 +10,4 @@ package dev.blanke.indyobfuscator.mapping;
  *
  * @param descriptor A descriptor specifying the method signature.
  */
-public record MethodIdentifier(String owner, String name, String descriptor) {}
+public record MethodIdentifier(String owner, String name, String descriptor, int opcode) {}

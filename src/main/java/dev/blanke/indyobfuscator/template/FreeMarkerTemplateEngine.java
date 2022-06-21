@@ -6,10 +6,12 @@ import java.io.IOException;
 import java.io.Writer;
 import java.util.Map;
 
+import freemarker.ext.beans.BeansWrapperBuilder;
 import freemarker.template.Configuration;
 import freemarker.template.DefaultObjectWrapperBuilder;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
+import org.objectweb.asm.Opcodes;
 
 import static freemarker.template.Configuration.VERSION_2_3_31;
 
@@ -46,14 +48,16 @@ public final class FreeMarkerTemplateEngine implements TemplateEngine {
     }
 
     @Override
-    public void process(final File template, final DataModel dataModel, final Writer output) throws Exception {
-        try (final var reader = new FileReader(template)) {
-            process(new Template(template.getName(), reader, configuration), Map.of("dataModel", dataModel), output);
-        }
-    }
+    public void process(final File templateFile, final DataModel dataModel, final Writer output)
+            throws IOException, TemplateException {
+        try (final var reader = new FileReader(templateFile)) {
+            final var template = new Template(templateFile.getName(), reader, configuration);
 
-    private void process(final Template template, final Object dataModel, final Writer output)
-            throws TemplateException, IOException {
-        template.process(dataModel, output);
+            final var wrapper =
+                new BeansWrapperBuilder(template.getConfiguration().getIncompatibleImprovements()).build();
+            final var opcodes = wrapper.getStaticModels().get(Opcodes.class.getName());
+
+            template.process(Map.of("dataModel", dataModel, "Opcodes", opcodes), output);
+        }
     }
 }
