@@ -18,21 +18,19 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved)
         return JNI_ERR;
     }
 
-    jclass constantCallSite = (*env)->FindClass(env, "java/lang/invoke/ConstantCallSite");
-    ConstantCallSite = (jclass) (*env)->NewGlobalRef(env, (jobject) ConstantCallSite); // Prevents garbage collection of the instance.
-
-    jmethodID constantCallSiteInit = (*env)->GetMethodID(env, ConstantCallSite, "<init>", "()V");
-    ConstantCallSiteInit = (jmethodID) (*env)->NewGlobalRef(env, (jobject) constantCallSiteInit);
+    ConstantCallSite = (*env)->NewGlobalRef(env,
+        (*env)->FindClass(env, "java/lang/invoke/ConstantCallSite")); // Prevents garbage collection of the instance.
+    ConstantCallSiteInit = (*env)->NewGlobalRef(env,
+        (*env)->GetMethodID(env, ConstantCallSite, "<init>", "(Ljava/lang/invoke/MethodHandle;)V"));
 
     jclass lookup = (*env)->FindClass(env, "java/lang/invoke/MethodHandles$Lookup");
 
-    jmethodID lookupFindVirtual = (*env)->GetMethodID(env, lookup, "findVirtual",
-        "(Ljava/lang/Class;Ljava/lang/String;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/MethodHandle;");
-    LookupFindVirtual = (jmethodID) (*env)->NewGlobalRef(env, (jobject) lookupFindVirtual);
-
-    jmethodID lookupFindStatic = (*env)->GetMethodID(env, lookup, "findStatic",
-        "(Ljava/lang/Class;Ljava/lang/String;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/MethodHandle;");
-    LookupFindStatic = (jmethodID) (*env)->NewGlobalRef(env, (jobject) lookupFindStatic);
+    LookupFindVirtual = (*env)->NewGlobalRef(env,
+        (*env)->GetMethodID(env, lookup, "findVirtual",
+            "(Ljava/lang/Class;Ljava/lang/String;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/MethodHandle;"));
+    LookupFindStatic = (*env)->NewGlobalRef(env,
+        (*env)->GetMethodID(env, lookup, "findStatic",
+            "(Ljava/lang/Class;Ljava/lang/String;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/MethodHandle;"));
     return JNI_VERSION_1_8;
 }
 
