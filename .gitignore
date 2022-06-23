@@ -1,6 +1,7 @@
 # IntelliJ IDEA
 /.idea/*
 !/.idea/dictionaries
+*.iml
 
 # Processed bootstrap.c.ftl files
 /native/bootstrap.c
@@ -10,3 +11,5 @@
 # Maven
 /target/
 /dependency-reduced-pom.xml
+
+.directory
