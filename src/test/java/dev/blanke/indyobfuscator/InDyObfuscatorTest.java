@@ -113,7 +113,7 @@ final class InDyObfuscatorTest {
         final var clinitMethod = clinitMethods.get(0);
         assertLoadMethodInstructionExists(clinitMethod.instructions);
         assertMethodInstructionExists(clinitMethod.instructions, instruction ->
-            (instruction.getOpcode() == Opcodes.INVOKESTATIC) && (instruction.owner.equals("java/io/PrintStream"))
+            (instruction.getOpcode() == Opcodes.INVOKEVIRTUAL) && (instruction.owner.equals("java/io/PrintStream"))
                 && (instruction.name.equals("println")));
 
         assertBootstrapMethodExists(bootstrapClassNode, obfuscator.getBootstrapMethodHandle());

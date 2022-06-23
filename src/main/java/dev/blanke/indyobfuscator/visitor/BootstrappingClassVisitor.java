@@ -77,7 +77,8 @@ public final class BootstrappingClassVisitor extends ClassVisitor {
             final var clinitVisitor =
                 new ClinitMethodVisitor(api, super.visitMethod(Opcodes.ACC_STATIC, "<clinit>", "()V", null, null));
             clinitVisitor.visitCode();
-            clinitVisitor.visitMaxs(0, 0);
+            clinitVisitor.visitInsn(Opcodes.RETURN);
+            clinitVisitor.visitMaxs(0, 0); // Dummy values, actual values will be computed automatically.
             clinitVisitor.visitEnd();
         }
 
@@ -130,8 +131,6 @@ public final class BootstrappingClassVisitor extends ClassVisitor {
                 "()Ljava/lang/String;", false);
             visitMethodInsn(Opcodes.INVOKESTATIC, Type.getInternalName(System.class), "load",
                 "(Ljava/lang/String;)V", false);
-
-            visitInsn(Opcodes.RETURN);
         }
     }
 }
