@@ -70,7 +70,7 @@ public final class ClassReaders {
     public static ClassNode compileAndTransform(final String source,
                                                 final BiConsumer<ClassReader, ClassWriter> transformation) {
         final var reader = Objects.requireNonNull(forSource(source));
-        final var writer = new ClassWriter(reader, 0);
+        final var writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES);
         transformation.accept(reader, writer);
 
         final var transformedClassNode = new ClassNode();
