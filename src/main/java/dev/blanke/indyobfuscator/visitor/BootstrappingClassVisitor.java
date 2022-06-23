@@ -128,6 +128,8 @@ public final class BootstrappingClassVisitor extends ClassVisitor {
                 "()Ljava/lang/String;", false);
             visitMethodInsn(Opcodes.INVOKESTATIC, Type.getInternalName(System.class), "load",
                 "(Ljava/lang/String;)V", false);
+
+            visitInsn(Opcodes.RETURN);
         }
     }
 }
