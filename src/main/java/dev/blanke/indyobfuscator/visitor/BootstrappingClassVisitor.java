@@ -7,9 +7,13 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.Type;
+import org.objectweb.asm.commons.GeneratorAdapter;
 
 import dev.blanke.indyobfuscator.BootstrapMethodConflictException;
+
+import static org.objectweb.asm.Type.CHAR_TYPE;
+import static org.objectweb.asm.Type.getType;
+import static org.objectweb.asm.commons.Method.getMethod;
 
 public final class BootstrappingClassVisitor extends ClassVisitor {
 
@@ -62,20 +66,20 @@ public final class BootstrappingClassVisitor extends ClassVisitor {
             throw new BootstrapMethodConflictException();
         }
 
-        final boolean isClinit = name.equals("<clinit>");
-        visitedClinit |= isClinit;
-
         // Append library loading code for the bootstrap method if we are visiting <clinit>.
         final var methodVisitor = super.visitMethod(access, name, descriptor, signature, exceptions);
-        return isClinit ? new ClinitMethodVisitor(api, methodVisitor) : methodVisitor;
+        if (!(visitedClinit |= name.equals("<clinit>")))
+            return methodVisitor;
+        return new ClinitMethodVisitor(api, methodVisitor, access, name, descriptor);
     }
 
     @Override
     public void visitEnd() {
         // If <clinit> was not found, add a static initializer containing the library loading code.
         if (!visitedClinit) {
-            final var clinitVisitor =
-                new ClinitMethodVisitor(api, super.visitMethod(Opcodes.ACC_STATIC, "<clinit>", "()V", null, null));
+            final var clinitVisitor = new ClinitMethodVisitor(api, super.visitMethod(
+                Opcodes.ACC_STATIC, "<clinit>", "()V", null, null),
+                Opcodes.ACC_STATIC, "<clinit>", "()V");
             clinitVisitor.visitCode();
             clinitVisitor.visitInsn(Opcodes.RETURN);
             clinitVisitor.visitMaxs(0, 0); // Dummy values, actual values will be computed automatically.
@@ -92,10 +96,11 @@ public final class BootstrappingClassVisitor extends ClassVisitor {
         super.visitEnd();
     }
 
-    private static final class ClinitMethodVisitor extends MethodVisitor {
+    private static final class ClinitMethodVisitor extends GeneratorAdapter {
 
-        ClinitMethodVisitor(final int api, final MethodVisitor methodVisitor) {
-            super(api, methodVisitor);
+        ClinitMethodVisitor(final int api, final MethodVisitor methodVisitor, final int access, final String name,
+                            final String descriptor) {
+            super(api, methodVisitor, access, name, descriptor);
         }
 
         @Override
@@ -103,34 +108,27 @@ public final class BootstrappingClassVisitor extends ClassVisitor {
             super.visitCode();
 
             // Create and initialize a StringBuilder.
-            visitTypeInsn(Opcodes.NEW, Type.getInternalName(StringBuilder.class));
-            visitInsn(Opcodes.DUP);
-            visitMethodInsn(Opcodes.INVOKESPECIAL, Type.getInternalName(StringBuilder.class), "<init>", "()V", false);
+            newInstance(getType(StringBuilder.class));
+            dup();
+            invokeConstructor(getType(StringBuilder.class), getMethod("void <init>()"));
 
             // Append current working directory retrieved using System.getProperty("user.dir") to the StringBuilder.
             visitLdcInsn("user.dir");
-            visitMethodInsn(Opcodes.INVOKESTATIC, Type.getInternalName(System.class), "getProperty",
-                "(Ljava/lang/String;)Ljava/lang/String;", false);
-            visitMethodInsn(Opcodes.INVOKEVIRTUAL, Type.getInternalName(StringBuilder.class), "append",
-                "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false);
+            invokeStatic(getType(System.class),         getMethod("java.lang.String getProperty(java.lang.String)"));
+            invokeVirtual(getType(StringBuilder.class), getMethod("java.lang.StringBuilder append(java.lang.String)"));
 
             // Append the path separator to the StringBuilder.
-            visitFieldInsn(Opcodes.GETSTATIC, Type.getInternalName(File.class), "separatorChar", "C");
-            visitMethodInsn(Opcodes.INVOKEVIRTUAL, Type.getInternalName(StringBuilder.class), "append",
-                "(C)Ljava/lang/StringBuilder;", false);
+            getStatic(getType(File.class), "separatorChar", CHAR_TYPE);
+            invokeVirtual(getType(StringBuilder.class), getMethod("java.lang.StringBuilder append (char)"));
 
             // Append the platform-specific library name retrieved from System.mapLibraryName to the StringBuilder.
-            visitLdcInsn("bootstrap");
-            visitMethodInsn(Opcodes.INVOKESTATIC, Type.getInternalName(System.class), "mapLibraryName",
-                "(Ljava/lang/String;)Ljava/lang/String;", false);
-            visitMethodInsn(Opcodes.INVOKEVIRTUAL, Type.getInternalName(StringBuilder.class), "append",
-                "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false);
+            visitLdcInsn("bootstrap"); // Name of the library to load. TODO: Consider making this configurable.
+            invokeStatic(getType(System.class),         getMethod("java.lang.String mapLibraryName(java.lang.String)"));
+            invokeVirtual(getType(StringBuilder.class), getMethod("java.lang.StringBuilder append(java.lang.String)"));
 
             // Invoke the StringBuilder.toString() method and pass the result to System.load.
-            visitMethodInsn(Opcodes.INVOKEVIRTUAL, Type.getInternalName(StringBuilder.class), "toString",
-                "()Ljava/lang/String;", false);
-            visitMethodInsn(Opcodes.INVOKESTATIC, Type.getInternalName(System.class), "load",
-                "(Ljava/lang/String;)V", false);
+            invokeVirtual(getType(StringBuilder.class), getMethod("java.lang.String toString()"));
+            invokeStatic(getType(System.class),         getMethod("void load(java.lang.String)"));
         }
     }
 }
