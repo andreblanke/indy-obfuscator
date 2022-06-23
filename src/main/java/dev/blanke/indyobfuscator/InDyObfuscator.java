@@ -20,10 +20,12 @@ import java.util.jar.Attributes.Name;
 import java.util.jar.JarFile;
 
 import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.util.CheckClassAdapter;
 
 import picocli.CommandLine;
 import picocli.CommandLine.Option;
@@ -88,6 +90,10 @@ public final class InDyObfuscator implements Callable<Integer> {
      */
     private Handle bootstrapMethodHandle;
 
+    private final boolean verify;
+
+    private final PrintWriter verificationResultsPrintWriter;
+
     private final SymbolMapping symbolMapping = new SequentialSymbolMapping();
 
     private final TemplateEngine templateEngine = new FreeMarkerTemplateEngine();
@@ -109,8 +115,14 @@ public final class InDyObfuscator implements Callable<Integer> {
             +
         ")" + Type.getDescriptor(CallSite.class);
 
+    InDyObfuscator(final boolean verify) {
+        this.verify = verify;
+
+        verificationResultsPrintWriter = verify ? new PrintWriter(System.err) : null;
+    }
+
     public static void main(final String... args) {
-        final int exitCode = new CommandLine(new InDyObfuscator()).execute(args);
+        final int exitCode = new CommandLine(new InDyObfuscator(false)).execute(args);
         System.exit(exitCode);
     }
 
@@ -140,14 +152,24 @@ public final class InDyObfuscator implements Callable<Integer> {
     }
 
     void addBootstrapMethod(final ClassReader reader, final ClassWriter writer) {
-        reader.accept(new BootstrappingClassVisitor(Opcodes.ASM9, writer, bootstrapMethodHandle),
-            ClassReader.EXPAND_FRAMES);
+        ClassVisitor visitor = new BootstrappingClassVisitor(Opcodes.ASM9, writer, bootstrapMethodHandle);
+        if (verify)
+            visitor = new CheckClassAdapter(visitor);
+        reader.accept(visitor, ClassReader.EXPAND_FRAMES);
+
+        if (verify)
+            CheckClassAdapter.verify(new ClassReader(writer.toByteArray()), true, verificationResultsPrintWriter);
     }
 
     byte[] obfuscate(final ClassReader reader, final ClassWriter writer) {
+        ClassVisitor visitor = new ObfuscatingClassVisitor(Opcodes.ASM9, writer, symbolMapping, bootstrapMethodHandle);
+        if (verify)
+            visitor = new CheckClassAdapter(visitor);
         // Expanded frames are required for LocalVariablesSorter.
-        reader.accept(new ObfuscatingClassVisitor(Opcodes.ASM9, writer, symbolMapping, bootstrapMethodHandle),
-            ClassReader.EXPAND_FRAMES);
+        reader.accept(visitor, ClassReader.EXPAND_FRAMES);
+
+        if (verify)
+            CheckClassAdapter.verify(new ClassReader(writer.toByteArray()), true, verificationResultsPrintWriter);
         return writer.toByteArray();
     }
 

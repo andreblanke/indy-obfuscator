@@ -1,6 +1,7 @@
 package dev.blanke.indyobfuscator;
 
 import java.util.Arrays;
+import java.util.function.Predicate;
 
 import org.intellij.lang.annotations.Language;
 
@@ -24,7 +25,7 @@ final class InDyObfuscatorTest {
 
     @BeforeEach
     void setUp() {
-        obfuscator = new InDyObfuscator();
+        obfuscator = new InDyObfuscator(true);
         obfuscator.setBootstrapMethodHandle(
             new Handle(Opcodes.H_INVOKESTATIC, "", InDyObfuscator.BOOTSTRAP_METHOD_DEFAULT_NAME,
                 InDyObfuscator.BOOTSTRAP_METHOD_DESCRIPTOR, false));
@@ -108,7 +109,12 @@ final class InDyObfuscatorTest {
                 .filter(methodNode -> methodNode.name.equals("<clinit>"))
                 .toList();
         assertEquals(1, clinitMethods.size());
-        assertLoadMethodInstructionExists(clinitMethods.get(0).instructions);
+
+        final var clinitMethod = clinitMethods.get(0);
+        assertLoadMethodInstructionExists(clinitMethod.instructions);
+        assertMethodInstructionExists(clinitMethod.instructions, instruction ->
+            (instruction.getOpcode() == Opcodes.INVOKESTATIC) && (instruction.owner.equals("java/io/PrintStream"))
+                && (instruction.name.equals("println")));
 
         assertBootstrapMethodExists(bootstrapClassNode, obfuscator.getBootstrapMethodHandle());
     }
@@ -132,14 +138,19 @@ final class InDyObfuscatorTest {
     }
 
     private static void assertLoadMethodInstructionExists(final InsnList instructions) {
-        final var loadMethodInstructions =
+        assertMethodInstructionExists(instructions, instruction -> (instruction.getOpcode() == Opcodes.INVOKESTATIC)
+            && (instruction.owner.equals("java/lang/System")) && (instruction.name.equals("load")));
+    }
+
+    private static void assertMethodInstructionExists(final InsnList                  instructions,
+                                                      final Predicate<MethodInsnNode> predicate) {
+        final var methodInstructions =
             Arrays.stream(instructions.toArray())
-                .filter(instruction -> instruction.getOpcode() == Opcodes.INVOKESTATIC)
+                .filter(MethodInsnNode.class::isInstance)
                 .map(MethodInsnNode.class::cast)
-                .filter(instruction -> instruction.owner.equals("java/lang/System")
-                    && (instruction.name.equals("load")))
+                .filter(predicate)
                 .toList();
-        assertTrue(loadMethodInstructions.size() >= 1);
+        assertTrue(methodInstructions.size() >= 1);
     }
 
     private static void assertBootstrapMethodExists(final ClassNode classNode, final Handle bootstrapMethodHandle) {
