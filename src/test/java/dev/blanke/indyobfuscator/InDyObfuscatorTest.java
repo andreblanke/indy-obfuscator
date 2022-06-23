@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test;
 
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.InvokeDynamicInsnNode;
