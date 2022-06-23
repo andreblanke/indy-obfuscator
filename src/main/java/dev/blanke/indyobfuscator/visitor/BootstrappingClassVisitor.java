@@ -77,6 +77,7 @@ public final class BootstrappingClassVisitor extends ClassVisitor {
             final var clinitVisitor =
                 new ClinitMethodVisitor(api, super.visitMethod(Opcodes.ACC_STATIC, "<clinit>", "()V", null, null));
             clinitVisitor.visitCode();
+            clinitVisitor.visitMaxs(-1, -1);
         }
 
         /*
