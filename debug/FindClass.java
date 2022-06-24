@@ -3,7 +3,7 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.Scanner;
 
-class Verify {
+class FindClass {
 
     private static final File JAR_FILE = new File("target/indy-obfuscator-1.0-SNAPSHOT.obf.jar");
 

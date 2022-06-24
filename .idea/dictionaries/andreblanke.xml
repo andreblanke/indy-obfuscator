@@ -13,6 +13,7 @@
       <w>jniexport</w>
       <w>jobject</w>
       <w>jstring</w>
+      <w>jthrowable</w>
       <w>jvms</w>
       <w>objectweb</w>
       <w>superblaubeere</w>

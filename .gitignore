@@ -1,12 +1,15 @@
 # IntelliJ IDEA
-/.idea/*
+.idea/*
 !/.idea/dictionaries
 *.iml
 
 # Processed bootstrap.c.ftl files
 /native/bootstrap.c
-# Shared libraries
+
+*.out
 *.so
+
+hs_err_pid*.log
 
 # Maven
 /target/
