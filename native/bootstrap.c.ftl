@@ -1,5 +1,6 @@
 <#-- @ftlvariable name="dataModel" type="dev.blanke.indyobfuscator.template.DataModel" -->
 #include <stdlib.h>
+#include <stdio.h>
 
 #include <jni.h>
 
@@ -20,19 +21,15 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved)
 
     // NewGlobalRef is used to prevent garbage collection of the instances.
 
-    ConstantCallSite = (*env)->NewGlobalRef(env,
-        (jobject) (*env)->FindClass(env, "java/lang/invoke/ConstantCallSite"));
-    ConstantCallSiteInit = (jmethodID) (*env)->NewGlobalRef(env,
-        (jobject) (*env)->GetMethodID(env, ConstantCallSite, "<init>", "(Ljava/lang/invoke/MethodHandle;)V"));
+    ConstantCallSite     = (*env)->NewGlobalRef(env, (*env)->FindClass(env, "java/lang/invoke/ConstantCallSite"));
+    ConstantCallSiteInit = (*env)->GetMethodID(env, ConstantCallSite, "<init>", "(Ljava/lang/invoke/MethodHandle;)V");
 
     jclass lookup = (*env)->FindClass(env, "java/lang/invoke/MethodHandles$Lookup");
 
-    LookupFindVirtual = (jmethodID) (*env)->NewGlobalRef(env,
-        (jobject) (*env)->GetMethodID(env, lookup, "findVirtual",
-            "(Ljava/lang/Class;Ljava/lang/String;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/MethodHandle;"));
-    LookupFindStatic = (jmethodID) (*env)->NewGlobalRef(env,
-        (jobject) (*env)->GetMethodID(env, lookup, "findStatic",
-            "(Ljava/lang/Class;Ljava/lang/String;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/MethodHandle;"));
+    LookupFindVirtual = (*env)->GetMethodID(env, lookup, "findVirtual",
+        "(Ljava/lang/Class;Ljava/lang/String;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/MethodHandle;");
+    LookupFindStatic = (*env)->GetMethodID(env, lookup, "findStatic",
+        "(Ljava/lang/Class;Ljava/lang/String;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/MethodHandle;");
     return JNI_VERSION_1_8;
 }
 
