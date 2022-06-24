@@ -14,7 +14,7 @@ java -jar "$JAR_ARTIFACT_PATH" "$JAR_ARTIFACT_PATH" -o "$OBF_ARTIFACT_PATH" \
 
 cd native/cmake/
 if [ ! -f 'Makefile' ]; then
-  cmake ..
+  cmake -DCMAKE_BUILD_TYPE=Debug ..
 fi
 make
 mv libbootstrap.so ../../
