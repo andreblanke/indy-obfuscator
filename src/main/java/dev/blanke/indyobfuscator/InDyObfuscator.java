@@ -151,16 +151,6 @@ public final class InDyObfuscator implements Callable<Integer> {
         }
     }
 
-    void addBootstrapMethod(final ClassReader reader, final ClassWriter writer) {
-        ClassVisitor visitor = new BootstrappingClassVisitor(Opcodes.ASM9, writer, bootstrapMethodHandle);
-        if (verify)
-            visitor = new CheckClassAdapter(visitor);
-        reader.accept(visitor, ClassReader.EXPAND_FRAMES);
-
-        if (verify)
-            CheckClassAdapter.verify(new ClassReader(writer.toByteArray()), true, verificationResultsPrintWriter);
-    }
-
     byte[] obfuscate(final ClassReader reader, final ClassWriter writer) {
         ClassVisitor visitor = new ObfuscatingClassVisitor(Opcodes.ASM9, writer, symbolMapping, bootstrapMethodHandle);
         if (verify)
@@ -171,6 +161,16 @@ public final class InDyObfuscator implements Callable<Integer> {
         if (verify)
             CheckClassAdapter.verify(new ClassReader(writer.toByteArray()), true, verificationResultsPrintWriter);
         return writer.toByteArray();
+    }
+
+    void addBootstrapMethod(final ClassReader reader, final ClassWriter writer) {
+        ClassVisitor visitor = new BootstrappingClassVisitor(Opcodes.ASM9, writer, bootstrapMethodHandle);
+        if (verify)
+            visitor = new CheckClassAdapter(visitor);
+        reader.accept(visitor, ClassReader.EXPAND_FRAMES);
+
+        if (verify)
+            CheckClassAdapter.verify(new ClassReader(writer.toByteArray()), true, verificationResultsPrintWriter);
     }
 
     public File getInput() {
