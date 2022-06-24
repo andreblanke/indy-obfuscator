@@ -1,0 +1,1 @@
+unset _JAVA_OPTIONS
