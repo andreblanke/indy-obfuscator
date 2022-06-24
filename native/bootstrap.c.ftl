@@ -4,6 +4,8 @@
 
 #include <jni.h>
 
+#include "debug.h"
+
 // Keep references to jclass and jmethodID structs which might be accessed on invocation of the bootstrap method.
 
 static jclass    ConstantCallSite;
@@ -36,6 +38,16 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved)
 static jobject Resolve
     (JNIEnv *env, jobject lookup, const char *ownerName, const char *invokedName, jobject invokedType, int opcode)
 {
+    static jmethodID DropParameterTypes = NULL;
+    if (DropParameterTypes == NULL)
+    {
+        jclass methodType = (*env)->FindClass(env, "java/lang/invoke/MethodType");
+        DropParameterTypes = (*env)->GetMethodID(env, methodType, "dropParameterTypes",
+            "(II)Ljava/lang/invoke/MethodType;");
+    }
+
+    printf("Resolving %s#%s\n", ownerName, invokedName);
+
     /*
      * TODO: Fix FindClass returning NULL for some reason.
      *       See:
@@ -50,12 +62,14 @@ static jobject Resolve
         case ${Opcodes.INVOKEVIRTUAL}:
         case ${Opcodes.INVOKEINTERFACE}:
             lookupMethod = LookupFindVirtual;
+            invokedType = (*env)->CallObjectMethod(env, invokedType, DropParameterTypes, 0, 1);
             break;
         case ${Opcodes.INVOKESTATIC}:
             lookupMethod = LookupFindStatic;
             break;
     }
 
+    PrintLn(env, ToString(env, invokedType));
     jobject methodHandle = (*env)->CallObjectMethod(env, lookup, lookupMethod, owner, name, invokedType);
     return (*env)->NewObject(env, ConstantCallSite, ConstantCallSiteInit, methodHandle);
 }
