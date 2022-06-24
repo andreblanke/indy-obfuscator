@@ -25,6 +25,9 @@ int main(int argc, char *argv[])
     delete options;
 
     jclass clazz = env->FindClass(argv[1]);
+    if (env->ExceptionCheck() == JNI_TRUE) {
+        env->ExceptionDescribe();
+    }
     printf("%p\n", clazz);
 
     jvm->DestroyJavaVM();
