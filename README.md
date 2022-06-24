@@ -18,3 +18,4 @@ performance.
 ## Links
 
 - [ASM 4.0 - A Java bytecode engineering library](https://asm.ow2.io/asm4-guide.pdf)
+- [Java Native Interface Specification: Contents](https://docs.oracle.com/en/java/javase/18/docs/specs/jni/)
