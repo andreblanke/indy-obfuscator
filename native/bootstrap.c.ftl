@@ -33,7 +33,7 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved)
     return JNI_VERSION_1_8;
 }
 
-static jobject resolve
+static jobject Resolve
     (JNIEnv *env, jobject lookup, const char *ownerName, const char *invokedName, jobject invokedType, int opcode)
 {
     /*
@@ -77,7 +77,7 @@ JNIEXPORT jobject JNICALL Java_${bootstrapMethodOwner}_${bootstrapMethodName}
     <#list dataModel.symbolMapping() as mapping>
     <#assign methodId = mapping.getKey()>
     case ${mapping.getValue()}:
-        return resolve(env, lookup, "${methodId.owner()}", "${methodId.name()}", invokedType, ${methodId.opcode()});
+        return Resolve(env, lookup, "${methodId.owner()}", "${methodId.name()}", invokedType, ${methodId.opcode()});
     </#list>
     default:
         return NULL;
