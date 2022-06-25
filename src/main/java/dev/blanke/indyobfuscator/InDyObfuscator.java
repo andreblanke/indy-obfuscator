@@ -14,10 +14,14 @@ import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.function.Predicate;
 import java.util.jar.Attributes.Name;
+import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.regex.Pattern;
 
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -48,7 +52,7 @@ public final class InDyObfuscator implements Callable<Integer> {
 
     @Option(
         names       = { "-o", "--output" },
-        description = "Write obfuscated content to file instead of manipulating input in place")
+        description = "Write obfuscated content to file instead of manipulating input in place.")
     private File output;
 
     @Option(
@@ -78,6 +82,9 @@ public final class InDyObfuscator implements Callable<Integer> {
             """,
         paramLabel = "<template-file>")
     private File bootstrapMethodTemplate;
+
+    /** @see #setIncludePatterns(List) */
+    private List<Predicate<String>> includePatternMatchPredicates = List.of();
 
     /**
      * A reference to the bootstrap method to which {@code invokedynamic} instructions delegate.
@@ -201,6 +208,21 @@ public final class InDyObfuscator implements Callable<Integer> {
 
     public void setBootstrapMethodHandle(final Handle bootstrapMethodHandle) {
         this.bootstrapMethodHandle = bootstrapMethodHandle;
+    }
+
+    @Option(
+        names       = { "-I", "--include" },
+        description = """
+            Regular expression limiting obfuscation to matched fully qualified class name.
+            E.g. 'dev\\.blanke\\.indyobfuscator\\.*'.
+            """,
+        paramLabel = "<regex>")
+    private void setIncludePatterns(final List<Pattern> includePatterns) {
+        includePatternMatchPredicates = includePatterns.stream().map(Pattern::asMatchPredicate).toList();
+    }
+
+    public List<Predicate<String>> getIncludePatternMatchPredicates() {
+        return includePatternMatchPredicates;
     }
 
     private enum InputType {
@@ -331,8 +353,8 @@ public final class InDyObfuscator implements Callable<Integer> {
                     if (parent != null)
                         Files.createDirectories(parent);
 
-                    if (!entry.getName().endsWith(".class")) {
-                        // Copy non-class resources to the outputFS unmodified.
+                    if (!isClass(entry) || !matchesIncludePattern(obfuscator, entry.getName().replace('/', '.'))) {
+                        // Copy non-class resources or excluded classes to the outputFS without modification.
                         Files.copy(inputJar.getInputStream(entry), entryPath, StandardCopyOption.REPLACE_EXISTING);
                         continue;
                     }
@@ -343,6 +365,15 @@ public final class InDyObfuscator implements Callable<Integer> {
 
                     Files.write(entryPath, writer.toByteArray());
                 }
+            }
+
+            private boolean isClass(final JarEntry entry) {
+                return entry.getName().endsWith(".class");
+            }
+
+            private boolean matchesIncludePattern(final InDyObfuscator obfuscator, final String fqcn) {
+                final var predicates = obfuscator.getIncludePatternMatchPredicates();
+                return predicates.isEmpty() || predicates.stream().anyMatch(predicate -> predicate.test(fqcn));
             }
         };
 
