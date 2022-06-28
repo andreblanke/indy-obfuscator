@@ -63,8 +63,11 @@ public final class BootstrappingClassVisitor extends ClassVisitor {
         }
 
         // Append library loading code for the bootstrap method if we are visiting <clinit>.
+        boolean isClinit = name.equals("<clinit>");
+        visitedClinit |= isClinit;
+
         final var methodVisitor = super.visitMethod(access, name, descriptor, signature, exceptions);
-        if (!(visitedClinit |= name.equals("<clinit>")))
+        if (!isClinit)
             return methodVisitor;
         return new ClinitMethodVisitor(api, methodVisitor, access, name, descriptor);
     }
