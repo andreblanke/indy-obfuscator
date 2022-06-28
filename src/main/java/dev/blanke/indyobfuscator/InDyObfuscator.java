@@ -175,14 +175,13 @@ public final class InDyObfuscator implements Callable<Integer> {
         verifyIfEnabled(writer);
     }
 
-    byte[] obfuscate(final ClassReader reader, final ClassWriter writer) {
+    void obfuscate(final ClassReader reader, final ClassWriter writer) {
         ClassVisitor visitor = new ObfuscatingClassVisitor(writer, symbolMapping, bootstrapMethodHandle);
         if (verify)
             visitor = new CheckClassAdapter(visitor);
         // Expanded frames are required for LocalVariablesSorter.
         reader.accept(visitor, ClassReader.EXPAND_FRAMES);
         verifyIfEnabled(writer);
-        return writer.toByteArray();
     }
 
     private void verifyIfEnabled(final ClassWriter writer) {
@@ -241,15 +240,18 @@ public final class InDyObfuscator implements Callable<Integer> {
         CLASS {
             @Override
             void obfuscate(final InDyObfuscator obfuscator) throws IOException {
-                final var reader = new ClassReader(new FileInputStream(obfuscator.getInput()));
-                final var writer = new ClassWriter(reader, 0);
+                var reader = new ClassReader(new FileInputStream(obfuscator.getInput()));
+                var writer = new ClassWriter(reader, 0);
 
                 obfuscator.setBootstrapMethodHandle(new Handle(Opcodes.H_INVOKESTATIC, reader.getClassName(),
                     obfuscator.getBootstrapMethodName(), BOOTSTRAP_METHOD_DESCRIPTOR, false));
+                obfuscator.obfuscate(reader, writer);
+
+                reader = new ClassReader(writer.toByteArray());
+                writer = new ClassWriter(reader, 0);
                 obfuscator.addBootstrapMethod(reader, writer);
 
-                final byte[] classBytes = obfuscator.obfuscate(reader, writer);
-                Files.write(obfuscator.getOutput().toPath(), classBytes);
+                Files.write(obfuscator.getOutput().toPath(), writer.toByteArray());
             }
         },
 
