@@ -1,6 +1,7 @@
 package dev.blanke.indyobfuscator;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.function.Predicate;
 
 import org.intellij.lang.annotations.Language;
@@ -17,11 +18,11 @@ import org.objectweb.asm.tree.InvokeDynamicInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 
-import dev.blanke.indyobfuscator.util.ClassReaders;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 import static org.objectweb.asm.Opcodes.*;
+
+import static dev.blanke.indyobfuscator.util.ClassReaders.compileAndTransform;
 
 final class InDyObfuscatorTest {
 
@@ -35,13 +36,14 @@ final class InDyObfuscatorTest {
                 InDyObfuscator.BOOTSTRAP_METHOD_DESCRIPTOR, false));
     }
 
-    private static MethodNode assertSingleClinitMethodExists(final ClassNode classNode) {
-        final var clinitMethods =
-            classNode.methods.stream()
-                .filter(methodNode -> methodNode.name.equals("<clinit>"))
-                .toList();
-        assertEquals(1, clinitMethods.size());
-        return clinitMethods.get(0);
+    private static MethodNode assertClinitExists(final ClassNode classNode) {
+        return assertMethodExists(classNode, method -> method.name.equals("<clinit>"));
+    }
+
+    private static MethodNode assertMethodExists(final ClassNode classNode, final Predicate<MethodNode> predicate) {
+        final var methods = classNode.methods.stream().filter(predicate).toList();
+        assertEquals(1, methods.size());
+        return methods.get(0);
     }
 
     private static void assertMethodInstructionExists(final InsnList                  instructions,
@@ -52,11 +54,17 @@ final class InDyObfuscatorTest {
 
     private static void assertInstructionExists(final InsnList                    instructions,
                                                 final Predicate<AbstractInsnNode> predicate) {
-        final var instructions0 =
-            Arrays.stream(instructions.toArray())
-                .filter(predicate)
-                .toList();
-        assertTrue(instructions0.size() >= 1);
+        assertFalse(findInstructions(instructions, predicate).isEmpty());
+    }
+
+    private static void assertInstructionNotExists(final InsnList                    instructions,
+                                                   final Predicate<AbstractInsnNode> predicate) {
+        assertTrue(findInstructions(instructions, predicate).isEmpty());
+    }
+
+    private static List<AbstractInsnNode> findInstructions(final InsnList                    instructions,
+                                                           final Predicate<AbstractInsnNode> predicate) {
+        return Arrays.stream(instructions.toArray()).filter(predicate).toList();
     }
 
     @Nested
@@ -74,9 +82,14 @@ final class InDyObfuscatorTest {
                     }
                 }
                 """;
-            final var fieldWrappedClassNode = ClassReaders.compileAndTransform(source, obfuscator::wrapFieldAccesses);
+            final var classNode = compileAndTransform(source, obfuscator::wrapFieldAccesses);
 
-            final var clinitMethod = assertSingleClinitMethodExists(fieldWrappedClassNode);
+            final var init = assertMethodExists(classNode, method -> method.name.equals("<init>"));
+            assertInstructionNotExists(init.instructions, instruction -> instruction.getOpcode() == GETFIELD);
+
+            final var syntheticGetter = assertMethodExists(classNode, method ->
+                method.name.startsWith("x") && method.desc.equals("()I"));
+            assertInstructionExists(syntheticGetter.instructions, instruction -> instruction.getOpcode() == GETFIELD);
         }
 
         @Test
@@ -87,9 +100,14 @@ final class InDyObfuscatorTest {
                     private int x = 0;
                 }
                 """;
-            final var fieldWrappedClassNode = ClassReaders.compileAndTransform(source, obfuscator::wrapFieldAccesses);
+            final var classNode = compileAndTransform(source, obfuscator::wrapFieldAccesses);
 
-            final var clinitMethod = assertSingleClinitMethodExists(fieldWrappedClassNode);
+            final var init = assertMethodExists(classNode, method -> method.name.equals("<init>"));
+            assertInstructionNotExists(init.instructions, instruction -> instruction.getOpcode() == PUTFIELD);
+
+            final var syntheticSetter = assertMethodExists(classNode, method ->
+                method.name.startsWith("x") && method.desc.equals("(I)V"));
+            assertInstructionExists(syntheticSetter.instructions, instruction -> instruction.getOpcode() == PUTFIELD);
         }
 
         @Test
@@ -104,9 +122,14 @@ final class InDyObfuscatorTest {
                 }
             }
             """;
-            final var fieldWrappedClassNode = ClassReaders.compileAndTransform(source, obfuscator::wrapFieldAccesses);
+            final var classNode = compileAndTransform(source, obfuscator::wrapFieldAccesses);
 
-            final var clinitMethod = assertSingleClinitMethodExists(fieldWrappedClassNode);
+            final var clinit = assertClinitExists(classNode);
+            assertInstructionNotExists(clinit.instructions, instruction -> instruction.getOpcode() == GETSTATIC);
+
+            final var syntheticGetter = assertMethodExists(classNode, method -> method.name.startsWith("x")
+                && method.desc.equals("()I") && ((method.access & ACC_STATIC) == ACC_STATIC));
+            assertInstructionExists(syntheticGetter.instructions, instruction -> instruction.getOpcode() == GETSTATIC);
         }
 
         @Test
@@ -117,9 +140,14 @@ final class InDyObfuscatorTest {
                 static int x = 0;
             }
             """;
-            final var fieldWrappedClassNode = ClassReaders.compileAndTransform(source, obfuscator::wrapFieldAccesses);
+            final var classNode = compileAndTransform(source, obfuscator::wrapFieldAccesses);
 
-            final var clinitMethod = assertSingleClinitMethodExists(fieldWrappedClassNode);
+            final var clinit = assertClinitExists(classNode);
+            assertInstructionNotExists(clinit.instructions, instruction -> instruction.getOpcode() == PUTSTATIC);
+
+            final var syntheticGetter = assertMethodExists(classNode, method -> method.name.startsWith("x")
+                && method.desc.equals("(I)V") && ((method.access & ACC_STATIC) == ACC_STATIC));
+            assertInstructionExists(syntheticGetter.instructions, instruction -> instruction.getOpcode() == PUTSTATIC);
         }
     }
 
@@ -133,13 +161,13 @@ final class InDyObfuscatorTest {
             class Test {
             }
             """;
-            final var bootstrapClassNode = ClassReaders.compileAndTransform(source, obfuscator::addBootstrapMethod);
+            final var classNode = compileAndTransform(source, obfuscator::addBootstrapMethod);
 
             // Assert that <clinit> has been created.
-            final var clinitMethod = assertSingleClinitMethodExists(bootstrapClassNode);
+            final var clinitMethod = assertClinitExists(classNode);
             assertLoadMethodInstructionExists(clinitMethod.instructions);
 
-            assertBootstrapMethodExists(bootstrapClassNode, obfuscator.getBootstrapMethodHandle());
+            assertBootstrapMethodExists(classNode, obfuscator.getBootstrapMethodHandle());
         }
 
         @Test
@@ -152,17 +180,17 @@ final class InDyObfuscatorTest {
                 }
             }
             """;
-            final var bootstrapClassNode = ClassReaders.compileAndTransform(source, obfuscator::addBootstrapMethod);
+            final var classNode = compileAndTransform(source, obfuscator::addBootstrapMethod);
 
             // Assert that <clinit> has been modified instead of an additional one having been created.
-            final var clinitMethod = assertSingleClinitMethodExists(bootstrapClassNode);
+            final var clinit = assertClinitExists(classNode);
 
-            assertLoadMethodInstructionExists(clinitMethod.instructions);
-            assertMethodInstructionExists(clinitMethod.instructions, instruction ->
+            assertLoadMethodInstructionExists(clinit.instructions);
+            assertMethodInstructionExists(clinit.instructions, instruction ->
                 (instruction.getOpcode() == INVOKEVIRTUAL) && (instruction.owner.equals("java/io/PrintStream"))
                     && (instruction.name.equals("println")));
 
-            assertBootstrapMethodExists(bootstrapClassNode, obfuscator.getBootstrapMethodHandle());
+            assertBootstrapMethodExists(classNode, obfuscator.getBootstrapMethodHandle());
         }
 
         private static void assertLoadMethodInstructionExists(final InsnList instructions) {
@@ -174,9 +202,8 @@ final class InDyObfuscatorTest {
             // Assert that a bootstrap method with correct name and descriptor has been created.
             final var bootstrapMethods =
                 classNode.methods.stream()
-                    .filter(methodNode ->
-                        methodNode.name.equals(bootstrapMethodHandle.getName()) &&
-                            methodNode.desc.equals(bootstrapMethodHandle.getDesc()))
+                    .filter(method -> method.name.equals(bootstrapMethodHandle.getName())
+                            && method.desc.equals(bootstrapMethodHandle.getDesc()))
                     .toList();
             assertEquals(1, bootstrapMethods.size());
 
@@ -200,7 +227,7 @@ final class InDyObfuscatorTest {
             }
             """;
             assertThrows(BootstrapMethodConflictException.class, () ->
-                ClassReaders.compileAndTransform(source, obfuscator::addBootstrapMethod));
+                compileAndTransform(source, obfuscator::addBootstrapMethod));
         }
     }
 
@@ -216,12 +243,12 @@ final class InDyObfuscatorTest {
                 }
             }
             """;
-            final var obfuscatedClassNode = ClassReaders.compileAndTransform(source, obfuscator::obfuscate);
+            final var classNode = compileAndTransform(source, obfuscator::obfuscate);
 
             final var mainMethodInstructions =
-                obfuscatedClassNode.methods.stream()
-                    .filter(methodNode -> methodNode.name.equals("main"))
-                    .flatMap(methodNode -> Arrays.stream(methodNode.instructions.toArray()))
+                classNode.methods.stream()
+                    .filter(method -> method.name.equals("main"))
+                    .flatMap(method -> Arrays.stream(method.instructions.toArray()))
                     .toList();
 
             /*
