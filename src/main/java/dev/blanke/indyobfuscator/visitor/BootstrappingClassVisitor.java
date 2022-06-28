@@ -6,11 +6,11 @@ import java.util.Objects;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.commons.GeneratorAdapter;
 
 import dev.blanke.indyobfuscator.BootstrapMethodConflictException;
 
+import static org.objectweb.asm.Opcodes.*;
 import static org.objectweb.asm.Type.CHAR_TYPE;
 import static org.objectweb.asm.Type.getType;
 import static org.objectweb.asm.commons.Method.getMethod;
@@ -37,9 +37,6 @@ public final class BootstrappingClassVisitor extends ClassVisitor {
     /**
      * Constructs a new {@link BootstrappingClassVisitor}.
      *
-     * @param api The ASM API version implemented by this visitor. Must be one of the {@code ASMx} values in
-     *            {@link Opcodes}.
-     *
      * @param classVisitor The {@link ClassVisitor} to which this visitor must delegate method calls.
      *                     May be {@code null}.
      *
@@ -47,9 +44,8 @@ public final class BootstrappingClassVisitor extends ClassVisitor {
      *                              inside the visited class. If a method with the same name and descriptor already
      *                              exists, a {@link BootstrapMethodConflictException} is thrown.
      */
-    public BootstrappingClassVisitor(final int api, final ClassVisitor classVisitor,
-                                     final Handle bootstrapMethodHandle) {
-        super(api, classVisitor);
+    public BootstrappingClassVisitor(final ClassVisitor classVisitor, final Handle bootstrapMethodHandle) {
+        super(ASM9, classVisitor);
 
         this.bootstrapMethodHandle = Objects.requireNonNull(bootstrapMethodHandle);
     }
@@ -78,10 +74,10 @@ public final class BootstrappingClassVisitor extends ClassVisitor {
         // If <clinit> was not found, add a static initializer containing the library loading code.
         if (!visitedClinit) {
             final var clinitVisitor = new ClinitMethodVisitor(api, super.visitMethod(
-                Opcodes.ACC_STATIC, "<clinit>", "()V", null, null),
-                Opcodes.ACC_STATIC, "<clinit>", "()V");
+                ACC_STATIC, "<clinit>", "()V", null, null),
+                ACC_STATIC, "<clinit>", "()V");
             clinitVisitor.visitCode();
-            clinitVisitor.visitInsn(Opcodes.RETURN);
+            clinitVisitor.visitInsn(RETURN);
             clinitVisitor.visitMaxs(0, 0); // Dummy values, actual values will be computed automatically.
             clinitVisitor.visitEnd();
         }
@@ -91,7 +87,7 @@ public final class BootstrappingClassVisitor extends ClassVisitor {
          * done to the returned MethodVisitor, as the created method is simply a stub on the Java side, due to being a
          * native method.
          */
-        super.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_NATIVE | Opcodes.ACC_SYNTHETIC,
+        super.visitMethod(ACC_PUBLIC | ACC_STATIC | ACC_NATIVE | ACC_SYNTHETIC,
             bootstrapMethodHandle.getName(), bootstrapMethodHandle.getDesc(), null, null);
         super.visitEnd();
     }

@@ -5,6 +5,7 @@ import java.util.Objects;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 
 import dev.blanke.indyobfuscator.mapping.SymbolMapping;
 
@@ -23,9 +24,9 @@ public final class ObfuscatingClassVisitor extends ClassVisitor {
      */
     private static final int MINIMUM_CLASS_VERSION = 51;
 
-    public ObfuscatingClassVisitor(final int api, final ClassVisitor classVisitor, final SymbolMapping symbolMapping,
+    public ObfuscatingClassVisitor(final ClassVisitor classVisitor, final SymbolMapping symbolMapping,
                                    final Handle bootstrapMethodHandle) {
-        super(api, classVisitor);
+        super(Opcodes.ASM9, classVisitor);
 
         this.symbolMapping         = Objects.requireNonNull(symbolMapping);
         this.bootstrapMethodHandle = Objects.requireNonNull(bootstrapMethodHandle);

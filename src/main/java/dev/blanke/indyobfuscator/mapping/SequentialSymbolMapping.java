@@ -8,6 +8,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.jetbrains.annotations.NotNull;
 
+import dev.blanke.indyobfuscator.MethodIdentifier;
+
 /**
  * A {@link SymbolMapping} implementation which assigns a unique number for each encountered {@link MethodIdentifier}.
  *

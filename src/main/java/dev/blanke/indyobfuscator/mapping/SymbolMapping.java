@@ -2,6 +2,8 @@ package dev.blanke.indyobfuscator.mapping;
 
 import java.util.Map.Entry;
 
+import dev.blanke.indyobfuscator.MethodIdentifier;
+
 /**
  * A {@code SymbolMapping} stores an identifier for each {@link MethodIdentifier} that is associated with a method to
  * be obfuscated and allows iteration of these mappings.

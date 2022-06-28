@@ -41,6 +41,7 @@ import dev.blanke.indyobfuscator.template.DataModel;
 import dev.blanke.indyobfuscator.template.FreeMarkerTemplateEngine;
 import dev.blanke.indyobfuscator.template.TemplateEngine;
 import dev.blanke.indyobfuscator.visitor.BootstrappingClassVisitor;
+import dev.blanke.indyobfuscator.visitor.FieldAccessWrappingClassVisitor;
 import dev.blanke.indyobfuscator.visitor.ObfuscatingClassVisitor;
 
 public final class InDyObfuscator implements Callable<Integer> {
@@ -158,26 +159,36 @@ public final class InDyObfuscator implements Callable<Integer> {
         }
     }
 
+    void wrapFieldAccesses(final ClassReader reader, final ClassWriter writer) {
+        ClassVisitor visitor = new FieldAccessWrappingClassVisitor(writer);
+        if (verify)
+            visitor = new CheckClassAdapter(visitor);
+        reader.accept(visitor, ClassReader.EXPAND_FRAMES);
+        verifyIfEnabled(writer);
+    }
+
+    void addBootstrapMethod(final ClassReader reader, final ClassWriter writer) {
+        ClassVisitor visitor = new BootstrappingClassVisitor(writer, bootstrapMethodHandle);
+        if (verify)
+            visitor = new CheckClassAdapter(visitor);
+        reader.accept(visitor, ClassReader.EXPAND_FRAMES);
+        verifyIfEnabled(writer);
+    }
+
     byte[] obfuscate(final ClassReader reader, final ClassWriter writer) {
-        ClassVisitor visitor = new ObfuscatingClassVisitor(Opcodes.ASM9, writer, symbolMapping, bootstrapMethodHandle);
+        ClassVisitor visitor = new ObfuscatingClassVisitor(writer, symbolMapping, bootstrapMethodHandle);
         if (verify)
             visitor = new CheckClassAdapter(visitor);
         // Expanded frames are required for LocalVariablesSorter.
         reader.accept(visitor, ClassReader.EXPAND_FRAMES);
-
-        if (verify)
-            CheckClassAdapter.verify(new ClassReader(writer.toByteArray()), true, verificationResultsPrintWriter);
+        verifyIfEnabled(writer);
         return writer.toByteArray();
     }
 
-    void addBootstrapMethod(final ClassReader reader, final ClassWriter writer) {
-        ClassVisitor visitor = new BootstrappingClassVisitor(Opcodes.ASM9, writer, bootstrapMethodHandle);
-        if (verify)
-            visitor = new CheckClassAdapter(visitor);
-        reader.accept(visitor, ClassReader.EXPAND_FRAMES);
-
-        if (verify)
+    private void verifyIfEnabled(final ClassWriter writer) {
+        if (verify) {
             CheckClassAdapter.verify(new ClassReader(writer.toByteArray()), true, verificationResultsPrintWriter);
+        }
     }
 
     public File getInput() {

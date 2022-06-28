@@ -1,15 +1,16 @@
 package dev.blanke.indyobfuscator.visitor;
 
+import java.lang.System.Logger;
+import java.lang.System.Logger.Level;
 import java.util.Objects;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
 
-import dev.blanke.indyobfuscator.mapping.MethodIdentifier;
+import dev.blanke.indyobfuscator.MethodIdentifier;
 import dev.blanke.indyobfuscator.mapping.SymbolMapping;
+
+import static org.objectweb.asm.Opcodes.*;
 
 final class ObfuscatingMethodVisitor extends MethodVisitor {
 
@@ -17,7 +18,7 @@ final class ObfuscatingMethodVisitor extends MethodVisitor {
 
     private final Handle bootstrapMethodHandle;
 
-    private static final Logger LOGGER = Logger.getLogger(ObfuscatingMethodVisitor.class.getName());
+    private static final Logger LOGGER = System.getLogger(ObfuscatingMethodVisitor.class.getName());
 
     ObfuscatingMethodVisitor(final int api, final MethodVisitor methodVisitor, final SymbolMapping symbolMapping,
                              final Handle bootstrapMethodHandle) {
@@ -60,31 +61,32 @@ final class ObfuscatingMethodVisitor extends MethodVisitor {
              * INVOKESTATIC does not allow access to the current object instance via 'this' and can thus use the
              * original method descriptor.
              */
-            case Opcodes.INVOKESTATIC -> invokeDynamicDescriptor = descriptor;
+            case INVOKESTATIC -> invokeDynamicDescriptor = descriptor;
             /*
              * All invoke* instructions that allow access to the current object instance via 'this' must have that
              * parameter added to the descriptor.
              */
-            case Opcodes.INVOKEVIRTUAL, Opcodes.INVOKESPECIAL, Opcodes.INVOKEINTERFACE -> {
+            case INVOKEVIRTUAL, INVOKESPECIAL, INVOKEINTERFACE -> {
                 final String ownerDescriptor =
                     (owner.startsWith("["))
                         // owner is already correct for arrays, i.e. of the form "[Ljava/lang/Object;".
                         ? owner
                         /*
-                         * otherwise, turn owner of the form "java/lang/Object" into a correct type descriptor.
+                         * otherwise, turn owner of the form "java/lang/Object" into a correct type descriptor of the
+                         * form "Ljava/lang/Object;".
                          * Primitives can be disregarded, as one cannot call methods on them.
                          */
                         : "L" + owner + ";";
                 invokeDynamicDescriptor = '(' + ownerDescriptor + descriptor.substring(1);
             }
             default -> {
-                LOGGER.log(Level.WARNING, "Trying to obfuscate method with an unrecognized opcode ({0}). Skipping.",
-                    opcode);
+                LOGGER.log(Level.WARNING,
+                    "Trying to obfuscate method instruction with an unrecognized opcode ({0}). Skipping.", opcode);
                 super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
                 return;
             }
         }
-        final var invokeDynamicName = symbolMapping.getName(new MethodIdentifier(owner, name, descriptor, opcode));
+        final var invokeDynamicName = symbolMapping.getName(new MethodIdentifier(opcode, owner, name, descriptor));
         super.visitInvokeDynamicInsn(invokeDynamicName, invokeDynamicDescriptor, bootstrapMethodHandle);
     }
 }
