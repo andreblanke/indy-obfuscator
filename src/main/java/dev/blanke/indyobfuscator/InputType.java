@@ -7,6 +7,7 @@ import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.function.Predicate;
 
 import org.objectweb.asm.ClassReader;
@@ -14,6 +15,9 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 
+/**
+ * Contains the logic for the obfuscation of artifacts of different formats.
+ */
 enum InputType {
 
     CLASS {
@@ -41,7 +45,7 @@ enum InputType {
         @Override
         void obfuscate(final InDyObfuscator obfuscator) throws IOException, BootstrapMethodOwnerMissingException {
             final var arguments = obfuscator.getArguments();
-            Files.copy(arguments.getInput(), arguments.getOutput());
+            Files.copy(arguments.getInput(), arguments.getOutput(), StandardCopyOption.REPLACE_EXISTING);
 
             try (final var outputFS = FileSystems.newFileSystem(arguments.getOutput())) {
                 final var bootstrapMethodOwner = arguments.getBootstrapMethodOwner();
