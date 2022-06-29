@@ -79,7 +79,7 @@ public final class BootstrappingClassVisitor extends ClassVisitor {
                 ACC_STATIC, "<clinit>", "()V");
             clinitVisitor.visitCode();
             clinitVisitor.visitInsn(RETURN);
-            clinitVisitor.visitMaxs(0, 0); // Dummy values, actual values will be computed automatically.
+            clinitVisitor.visitMaxs(0, 0);
             clinitVisitor.visitEnd();
         }
 
@@ -126,6 +126,17 @@ public final class BootstrappingClassVisitor extends ClassVisitor {
             // Invoke the StringBuilder.toString() method and pass the result to System.load.
             invokeVirtual(getType(StringBuilder.class), getMethod("java.lang.String toString()"));
             invokeStatic(getType(System.class),         getMethod("void load(java.lang.String)"));
+        }
+
+        @Override
+        public void visitMaxs(final int maxStack, final int maxLocals) {
+            /*
+             * The instructions added by visitCode do not use any local variables, so pass maxLocals through unmodified.
+             *
+             * At most two values are on the stack for the purpose of loading the bootstrap library: a StringBuilder
+             * instance and a value to be appended to the StringBuilder, so raise maxStack to at least 2.
+             */
+            super.visitMaxs(Math.max(maxStack, 2), maxLocals);
         }
     }
 }
