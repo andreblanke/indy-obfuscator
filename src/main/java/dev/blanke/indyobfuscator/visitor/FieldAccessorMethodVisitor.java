@@ -32,6 +32,29 @@ abstract sealed class FieldAccessorMethodVisitor extends GeneratorAdapter {
         returnValue();
     }
 
+    @Override
+    public void visitMaxs(int maxStack, int maxLocals) {
+        final var isVirtual =
+            ((fieldAccessor.getFieldOpcode() == PUTFIELD) || (fieldAccessor.getFieldOpcode() == GETFIELD));
+        final var isSetter =
+            ((fieldAccessor.getFieldOpcode() == PUTFIELD) || (fieldAccessor.getFieldOpcode() == PUTSTATIC));
+
+        /*
+         * The field accessor takes up at least one stack slot for the setter argument/get* return value,
+         * plus an additional slot for the object reference on which the (get|put)field instruction is being executed
+         * unless the accessor being generated is static.
+         */
+        maxStack = Math.max(maxStack, 1 + (isVirtual ? 1 : 0));
+
+        /*
+         * The field accessor uses one local variable slot for 'this' unless the field this accessor belongs to is
+         * static, plus an additional slot for a setter argument.
+         */
+        maxLocals = Math.max(maxLocals, (isVirtual ? 1 : 0) + (isSetter ? 1 : 0));
+
+        super.visitMaxs(maxStack, maxLocals);
+    }
+
     static final class FieldGetterMethodVisitor extends FieldAccessorMethodVisitor {
 
         FieldGetterMethodVisitor(final int api, final MethodVisitor methodVisitor,
