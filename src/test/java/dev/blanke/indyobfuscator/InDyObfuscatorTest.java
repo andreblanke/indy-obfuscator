@@ -89,8 +89,8 @@ final class InDyObfuscatorTest {
             final var init = assertMethodExists(classNode, method -> method.name.equals("<init>"));
             assertInstructionNotExists(init.instructions, instruction -> instruction.getOpcode() == GETFIELD);
 
-            final var syntheticGetter = assertMethodExists(classNode, method ->
-                method.name.startsWith("x") && method.desc.equals("()I"));
+            final var syntheticGetter = assertMethodExists(classNode, method -> method.name.startsWith("x")
+                && method.desc.equals("(LTest;)I") && ((method.access & ACC_STATIC) != 0));
             assertInstructionExists(syntheticGetter.instructions, instruction -> instruction.getOpcode() == GETFIELD);
         }
 
@@ -107,8 +107,8 @@ final class InDyObfuscatorTest {
             final var init = assertMethodExists(classNode, method -> method.name.equals("<init>"));
             assertInstructionNotExists(init.instructions, instruction -> instruction.getOpcode() == PUTFIELD);
 
-            final var syntheticSetter = assertMethodExists(classNode, method ->
-                method.name.startsWith("x") && method.desc.equals("(I)V"));
+            final var syntheticSetter = assertMethodExists(classNode, method -> method.name.startsWith("x")
+                && method.desc.equals("(LTest;I)V") && ((method.access & ACC_STATIC) != 0));
             assertInstructionExists(syntheticSetter.instructions, instruction -> instruction.getOpcode() == PUTFIELD);
         }
 
@@ -130,7 +130,7 @@ final class InDyObfuscatorTest {
             assertInstructionNotExists(clinit.instructions, instruction -> instruction.getOpcode() == GETSTATIC);
 
             final var syntheticGetter = assertMethodExists(classNode, method -> method.name.startsWith("x")
-                && method.desc.equals("()I") && ((method.access & ACC_STATIC) == ACC_STATIC));
+                && method.desc.equals("()I") && ((method.access & ACC_STATIC) != 0));
             assertInstructionExists(syntheticGetter.instructions, instruction -> instruction.getOpcode() == GETSTATIC);
         }
 
@@ -148,7 +148,7 @@ final class InDyObfuscatorTest {
             assertInstructionNotExists(clinit.instructions, instruction -> instruction.getOpcode() == PUTSTATIC);
 
             final var syntheticGetter = assertMethodExists(classNode, method -> method.name.startsWith("x")
-                && method.desc.equals("(I)V") && ((method.access & ACC_STATIC) == ACC_STATIC));
+                && method.desc.equals("(I)V") && ((method.access & ACC_STATIC) != 0));
             assertInstructionExists(syntheticGetter.instructions, instruction -> instruction.getOpcode() == PUTSTATIC);
         }
     }

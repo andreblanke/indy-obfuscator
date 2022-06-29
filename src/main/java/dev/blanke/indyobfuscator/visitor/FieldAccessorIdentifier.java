@@ -21,13 +21,17 @@ public final class FieldAccessorIdentifier extends MethodIdentifier {
         super(fieldOpcode, fieldOwner, fieldName, fieldDescriptor);
     }
 
+    /**
+     * @see #getAccess()
+     */
     @Override
     public int getOpcode() {
-        return switch (getFieldOpcode()) {
-            case GETFIELD,  PUTFIELD  -> INVOKEVIRTUAL;
-            case GETSTATIC, PUTSTATIC -> INVOKESTATIC;
-            default -> throw new IllegalArgumentException("Unrecognized field opcode '%d'".formatted(opcode));
-        };
+        /*
+         * Always generate the synthetic accessor as static method for simplicity, as the field being accessed might
+         * not necessarily be located in the class containing the field instruction that will be replaced by a method
+         * invocation.
+         */
+        return INVOKESTATIC;
     }
 
     @Override
@@ -47,18 +51,21 @@ public final class FieldAccessorIdentifier extends MethodIdentifier {
 
     @Override
     public String getDescriptor() {
+        final var ownerDescriptor = 'L' + getFieldOwner() + ';';
         return switch (getFieldOpcode()) {
-            case GETFIELD, GETSTATIC -> "()" + getFieldDescriptor();
-            case PUTFIELD, PUTSTATIC -> "("  + getFieldDescriptor() + ")V";
+            case GETFIELD  -> "("  + ownerDescriptor + ")" + getFieldDescriptor();
+            case PUTFIELD  -> "("  + ownerDescriptor + getFieldDescriptor() + ")V";
+            case GETSTATIC -> "()" + getFieldDescriptor();
+            case PUTSTATIC -> "("  + getFieldDescriptor() + ")V";
             default -> throw new IllegalArgumentException("Unrecognized field opcode '%d'".formatted(opcode));
         };
     }
 
+    /**
+     * @see #getOpcode()
+     */
     public int getAccess() {
-        int access = ACC_PRIVATE | ACC_SYNTHETIC;
-        if ((getFieldOpcode() == GETSTATIC) || (getFieldOpcode() == PUTSTATIC))
-            access |= ACC_STATIC;
-        return access;
+        return ACC_PRIVATE | ACC_STATIC | ACC_SYNTHETIC;
     }
 
     public int getFieldOpcode() {

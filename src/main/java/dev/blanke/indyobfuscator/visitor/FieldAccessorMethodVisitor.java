@@ -64,9 +64,9 @@ abstract sealed class FieldAccessorMethodVisitor extends GeneratorAdapter {
 
         @Override
         public void visitCode() {
-            // Push 'this' in case the field is an instance member.
+            // Push instance reference in case the field is an instance member.
             if (fieldAccessor.getFieldOpcode() == GETFIELD)
-                loadThis();
+                loadArg(0);
             // Invoke original field instruction and return.
             super.visitCode();
         }
@@ -81,11 +81,11 @@ abstract sealed class FieldAccessorMethodVisitor extends GeneratorAdapter {
 
         @Override
         public void visitCode() {
-            // Push 'this' in case the field is an instance member.
-            if (fieldAccessor.getFieldOpcode() == PUTFIELD)
-                loadThis();
-            // Push field value onto the stack.
+            // Push field value or instance reference onto the stack.
             loadArg(0);
+            // Push field value in case the field is an instance member.
+            if (fieldAccessor.getFieldOpcode() == PUTFIELD)
+                loadArg(1);
             // Invoke original field instruction and return.
             super.visitCode();
         }
