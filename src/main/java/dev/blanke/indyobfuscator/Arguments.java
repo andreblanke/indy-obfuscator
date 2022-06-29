@@ -25,81 +25,20 @@ import picocli.CommandLine.Parameters;
  */
 public final class Arguments {
 
+    //region Input/output
     @Parameters(
         index       = "0",
         description = "The .jar or .class file to be obfuscated.")
     private Path input;
 
+    public @NotNull Path getInput() {
+        return input;
+    }
+
     @Option(
         names       = { "-o", "--output" },
         description = "Write obfuscated content to file instead of manipulating input in place.")
     private Path output;
-
-    /**
-     * A list of predicates matching class names to include in the obfuscation process.
-     *
-     * @see #setIncludePatterns(List)
-     */
-    private List<Predicate<String>> includePatternMatchPredicates = List.of();
-
-    @Option(
-        names       = { "--bsm-owner", "--bootstrap-method-owner" },
-        description = """
-            Fully qualified name of a class from the jar file which should contain the bootstrap method.
-            Defaults to Main-Class of jar file if unspecified.""",
-        paramLabel  = "<fqcn>")
-    private String bootstrapMethodOwner;
-
-    /**
-     * @implNote Make sure to update the source code passed to tests when changing the default value.
-     */
-    @Option(
-        names       = { "--bsm-name", "--bootstrap-method-name" },
-        description = """
-            The name to use for the generated bootstrap method. May have to be changed if the owning class defines a
-            conflicting method.
-            Defaults to "bootstrap" if unspecified.
-            """,
-        paramLabel   = "<identifier>")
-    private String bootstrapMethodName = "bootstrap";
-
-    @Option(
-        names       = { "--bsm-template", "--bootstrap-method-template" },
-        description = """
-            Template file containing the native bootstrap method implementation.
-            The symbol mapping created during obfuscation will be passed to the template as parameter.
-            """,
-        paramLabel = "<template-file>")
-    private File bootstrapMethodTemplate;
-
-    /**
-     * The method descriptor specifying the signature of the used bootstrap method.
-     */
-    private static final String BOOTSTRAP_METHOD_DESCRIPTOR =
-        "(" + Type.getDescriptor(MethodHandles.Lookup.class)
-            + Type.getDescriptor(String.class)     // invokedName
-            + Type.getDescriptor(MethodType.class) // invokedType
-            +
-        ")" + Type.getDescriptor(CallSite.class);
-
-    @Option(
-        names       = { "-I", "--include" },
-        description = """
-            Regular expression limiting obfuscation to matched fully qualified class name.
-            E.g. 'dev\\.blanke\\.indyobfuscator\\.*'.
-            """,
-        paramLabel = "<regex>")
-    private void setIncludePatterns(final List<Pattern> includePatterns) {
-        includePatternMatchPredicates = includePatterns.stream().map(Pattern::asMatchPredicate).toList();
-    }
-
-    public @NotNull List<Predicate<String>> getIncludePatternMatchPredicates() {
-        return includePatternMatchPredicates;
-    }
-
-    public @NotNull Path getInput() {
-        return input;
-    }
 
     /**
      * Returns the {@link Path} to which the obfuscated output should be written.
@@ -110,6 +49,55 @@ public final class Arguments {
     public @NotNull Path getOutput() {
         return (output != null) ? output : input;
     }
+    //endregion
+
+    //region Includes
+    /**
+     * A list of predicates matching class names to decide whether the respective classes should be included in the
+     * obfuscation process.
+     *
+     * @see #setIncludePatterns(List)
+     */
+    private List<Predicate<String>> includePatternMatchPredicates = List.of();
+
+    @Option(
+        names       = { "-I", "--include" },
+        description = """
+            Regular expression limiting obfuscation to matched fully qualified class name.
+            E.g. 'dev\\.blanke\\.indyobfuscator\\..*'.
+            """,
+        paramLabel = "<regex>")
+    private void setIncludePatterns(final List<Pattern> includePatterns) {
+        includePatternMatchPredicates = includePatterns.stream().map(Pattern::asMatchPredicate).toList();
+    }
+
+    /**
+     * Checks whether the provided path to a class file matches at least one include pattern after conversion to a fully
+     * qualified class name, in which case that class will be included in the current obfuscation pass.
+     *
+     * @param path The path to a class inside a jar file for which inclusion in the obfuscation pass is to be checked.
+     *
+     * @return {@code true} if the class associated with the {@code path} should be included in the obfuscation pass,
+     *         otherwise {@code false}.
+     *
+     * @see InputType#JAR
+     */
+    public boolean matchesIncludePattern(final Path path) {
+        // Drop the leading slash and convert path separators to dots.
+        final var fqcn = path.toString().substring(1).replace('/', '.');
+        return includePatternMatchPredicates.isEmpty()
+            || includePatternMatchPredicates.stream().anyMatch(predicate -> predicate.test(fqcn));
+    }
+    //endregion
+
+    //region Bootstrap method options
+    @Option(
+        names       = { "--bsm-owner", "--bootstrap-method-owner" },
+        description = """
+            Fully qualified name of a class from the jar file which should contain the bootstrap method.
+            Defaults to Main-Class of jar file if unspecified.""",
+        paramLabel  = "<fqcn>")
+    private String bootstrapMethodOwner;
 
     /**
      * Returns the internal name of the class which should contain the bootstrap method when obfuscating jar file.
@@ -125,6 +113,8 @@ public final class Arguments {
      *                                              to a missing {@code Main-Class} attribute and the user not
      *                                              specifying the bootstrap method owner manually using the
      *                                              {@code --bootstrap-method-owner} command-line option.
+     *
+     * @see InputType#JAR
      */
     public @NotNull String getBootstrapMethodOwner() throws IOException, BootstrapMethodOwnerMissingException {
         var owner = bootstrapMethodOwner;
@@ -139,15 +129,48 @@ public final class Arguments {
         return owner.replace('.', '/');
     }
 
+    /**
+     * @implNote Make sure to update the source code passed to tests when changing the default value.
+     */
+    @Option(
+        names       = { "--bsm-name", "--bootstrap-method-name" },
+        description = """
+            The name to use for the generated bootstrap method. May have to be changed if the owning class defines a
+            conflicting method.
+            Defaults to "bootstrap" if unspecified.
+            """,
+        paramLabel   = "<identifier>")
+    private String bootstrapMethodName = "bootstrap";
+
     public @NotNull String getBootstrapMethodName() {
         return bootstrapMethodName;
     }
+
+    /**
+     * The method descriptor specifying the signature of the used bootstrap method.
+     */
+    private static final String BOOTSTRAP_METHOD_DESCRIPTOR =
+        "(" + Type.getDescriptor(MethodHandles.Lookup.class)
+            + Type.getDescriptor(String.class)     // invokedName
+            + Type.getDescriptor(MethodType.class) // invokedType
+            +
+            ")" + Type.getDescriptor(CallSite.class);
 
     public @NotNull String getBootstrapMethodDescriptor() {
         return BOOTSTRAP_METHOD_DESCRIPTOR;
     }
 
+    @Option(
+        names       = { "--bsm-template", "--bootstrap-method-template" },
+        description = """
+            Template file containing the native bootstrap method implementation.
+            The symbol mapping created during obfuscation will be passed to the template as parameter.
+            """,
+        paramLabel = "<template-file>")
+    private File bootstrapMethodTemplate;
+
     public @Nullable File getBootstrapMethodTemplate() {
         return bootstrapMethodTemplate;
     }
+    //endregion
 }

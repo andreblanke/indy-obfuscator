@@ -3,12 +3,14 @@ package dev.blanke.indyobfuscator;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.lang.System.Logger;
+import java.lang.System.Logger.Level;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.function.Predicate;
+import java.util.function.BiConsumer;
 
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
@@ -30,6 +32,11 @@ enum InputType {
 
                 obfuscator.setBootstrapMethodHandle(new Handle(Opcodes.H_INVOKESTATIC, reader.getClassName(),
                     arguments.getBootstrapMethodName(), arguments.getBootstrapMethodDescriptor(), false));
+
+                obfuscator.wrapFieldAccesses(reader, writer);
+
+                reader = new ClassReader(writer.toByteArray());
+                writer = new ClassWriter(reader, 0);
                 obfuscator.obfuscate(reader, writer);
 
                 reader = new ClassReader(writer.toByteArray());
@@ -52,37 +59,44 @@ enum InputType {
                 obfuscator.setBootstrapMethodHandle(new Handle(Opcodes.H_INVOKESTATIC, bootstrapMethodOwner,
                     arguments.getBootstrapMethodName(), arguments.getBootstrapMethodDescriptor(), false));
 
-                // Do a first pass over the jar file entries for the actual obfuscation of classes.
-                obfuscateJarEntries(obfuscator, outputFS);
+                /*
+                 * Do a first pass over the included classes to replace field instructions (GETFIELD, PUTFIELD,
+                 * GETSTATIC, PUTSTATIC) with invocations of synthetic getters/setters.
+                 */
+                transformIncludedClassFiles(obfuscator, outputFS, obfuscator::wrapFieldAccesses);
 
                 /*
-                 * Do a second pass over the jar file entries to add the bootstrap method.
+                 * Do a second pass over the included classes for the actual obfuscation step. Synthetic field accessor
+                 * methods which have been generated in the previous step are included.
+                 */
+                transformIncludedClassFiles(obfuscator, outputFS, obfuscator::obfuscate);
+
+                /*
+                 * Access the jar file entries one more time to add the bootstrap method.
                  *
-                 * This needs to be done after the first pass, as otherwise the library loading code used to set up
-                 * the native implementation bootstrap method will be obfuscated as well, resulting in a circular
+                 * This needs to be done after the obfuscation pass, as otherwise the library loading code used to set
+                 * up the native implementation bootstrap method would be obfuscated as well, resulting in a circular
                  * dependency.
                  */
                 addBootstrapMethod(obfuscator, outputFS);
             }
         }
 
-        private static void obfuscateJarEntries(final InDyObfuscator obfuscator,
-                                                final FileSystem     fileSystem) throws IOException {
-            final Predicate<Path> matchesIncludePattern = path -> {
-                final var fqcn       = path.toString().replace('/', '.');
-                final var predicates = obfuscator.getArguments().getIncludePatternMatchPredicates();
-                return predicates.isEmpty() || predicates.stream().anyMatch(predicate -> predicate.test(fqcn));
-            };
-
+        private static void transformIncludedClassFiles(final InDyObfuscator                       obfuscator,
+                                                        final FileSystem                           fileSystem,
+                                                        final BiConsumer<ClassReader, ClassWriter> transformation)
+                throws IOException {
             try (final var fileStream = Files.walk(fileSystem.getPath("/"))) {
                 fileStream
-                    .filter(Files::isRegularFile)
-                    .filter(path -> path.endsWith(".class") && matchesIncludePattern.test(path))
+                    .filter(path -> Files.isRegularFile(path) && path.toString().endsWith(".class")
+                        && obfuscator.getArguments().matchesIncludePattern(path))
                     .forEach(path -> {
                         try (final var classInputStream = Files.newInputStream(path)) {
                             final var reader = new ClassReader(classInputStream);
                             final var writer = new ClassWriter(reader, 0);
-                            obfuscator.obfuscate(reader, writer);
+
+                            LOGGER.log(Level.INFO, "Transforming {0}...", path);
+                            transformation.accept(reader, writer);
 
                             Files.write(path, writer.toByteArray());
                         } catch (final IOException exception) {
@@ -110,8 +124,8 @@ enum InputType {
          *
          * @throws IOException If reading from the {@code inputJar} or writing to the {@code fileSystem} failed.
          */
-        private void addBootstrapMethod(final InDyObfuscator obfuscator,
-                                        final FileSystem fileSystem) throws IOException {
+        private static void addBootstrapMethod(final InDyObfuscator obfuscator,
+                                               final FileSystem     fileSystem) throws IOException {
             final var bootstrapMethodOwnerPath =
                 fileSystem.getPath(obfuscator.getBootstrapMethodHandle().getOwner() + ".class");
 
@@ -124,6 +138,8 @@ enum InputType {
             Files.write(bootstrapMethodOwnerPath, writer.toByteArray());
         }
     };
+
+    private static final Logger LOGGER = System.getLogger(InputType.class.getName());
 
     abstract void obfuscate(InDyObfuscator obfuscator) throws IOException, BootstrapMethodOwnerMissingException;
 

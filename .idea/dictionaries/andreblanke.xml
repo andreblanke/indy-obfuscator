@@ -1,6 +1,8 @@
 <component name="ProjectDictionaryState">
   <dictionary name="andreblanke">
     <words>
+      <w>getfield</w>
+      <w>getstatic</w>
       <w>indyobfuscator</w>
       <w>invokedynamic</w>
       <w>invokeinterface</w>
@@ -16,6 +18,7 @@
       <w>jthrowable</w>
       <w>jvms</w>
       <w>objectweb</w>
+      <w>putstatic</w>
       <w>superblaubeere</w>
       <w>xverify</w>
       <w>zelix</w>
