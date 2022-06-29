@@ -1,5 +1,7 @@
 package dev.blanke.indyobfuscator;
 
+import java.util.Objects;
+
 /**
  * Denotes a 4-tuple which uniquely identifies a method in a program. Instances of this class are passed to templates
  * as part of the generated {@link dev.blanke.indyobfuscator.mapping.SymbolMapping} to facilitate the generation of a
@@ -33,6 +35,20 @@ public class MethodIdentifier {
         this.owner      = owner;
         this.name       = name;
         this.descriptor = descriptor;
+    }
+
+    @Override
+    public boolean equals(final Object object) {
+        return (this == object) || (object instanceof MethodIdentifier other)
+            && (opcode == other.opcode)
+            && Objects.equals(owner,      other.owner)
+            && Objects.equals(name,       other.name)
+            && Objects.equals(descriptor, other.descriptor);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(opcode, owner, name, descriptor);
     }
 
     public int getOpcode() {
