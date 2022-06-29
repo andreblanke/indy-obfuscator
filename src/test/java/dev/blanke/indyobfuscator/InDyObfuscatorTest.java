@@ -116,14 +116,14 @@ final class InDyObfuscatorTest {
         void testWrapFieldAccessesGetStatic() {
             @Language("JAVA")
             final var source = """
-            class Test {
-                static int x = 0;
+                class Test {
+                    static int x = 0;
 
-                static {
-                    System.exit(x);
+                    static {
+                        System.exit(x);
+                    }
                 }
-            }
-            """;
+                """;
             final var classNode = compileAndTransform(source, obfuscator::wrapFieldAccesses);
 
             final var clinit = assertClinitExists(classNode);
@@ -138,10 +138,10 @@ final class InDyObfuscatorTest {
         void testWrapFieldAccessesPutStatic() {
             @Language("JAVA")
             final var source = """
-            class Test {
-                static int x = 0;
-            }
-            """;
+                class Test {
+                    static int x = 0;
+                }
+                """;
             final var classNode = compileAndTransform(source, obfuscator::wrapFieldAccesses);
 
             final var clinit = assertClinitExists(classNode);
