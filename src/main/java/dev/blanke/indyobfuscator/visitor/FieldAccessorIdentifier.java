@@ -1,41 +1,43 @@
 package dev.blanke.indyobfuscator.visitor;
 
+import java.util.Objects;
 import java.util.UUID;
 
 import dev.blanke.indyobfuscator.MethodIdentifier;
 
 import static org.objectweb.asm.Opcodes.*;
 
-/**
- * @implNote {@link FieldAccessorIdentifier#opcode}, {@link FieldAccessorIdentifier#name}, and
- *           {@link FieldAccessorIdentifier#descriptor} inherited from {@link MethodIdentifier} are repurposed to
- *           hold the information of the original field.
- *           The public {@code get*} methods are used to compute the true opcode, name, and descriptor of the method
- *           based on the values of the original field.
- *           Additional {@code getField*} methods have been introduced for more explicitness.
- */
 public final class FieldAccessorIdentifier extends MethodIdentifier {
+
+    private final int fieldOpcode;
+
+    private final String fieldOwner;
+
+    private final String fieldName;
+
+    private final String fieldDescriptor;
 
     public FieldAccessorIdentifier(final int fieldOpcode, final String fieldOwner, final String fieldName,
                                    final String fieldDescriptor) {
-        super(fieldOpcode, fieldOwner, fieldName, fieldDescriptor);
-    }
-
-    /**
-     * @see #getAccess()
-     */
-    @Override
-    public int getOpcode() {
         /*
          * Always generate the synthetic accessor as static method for simplicity, as the field being accessed might
          * not necessarily be located in the class containing the field instruction that will be replaced by a method
          * invocation.
+         *
+         * MethodIdentifier.owner is unused, as the field accessor wrapper is always generated in the class containing
+         * the field access. However, it may not be null for the hash code computation, which is why an empty string is
+         * passed.
          */
-        return INVOKESTATIC;
+        super(INVOKESTATIC, "",
+            deriveMethodName(fieldName), deriveMethodDescriptor(fieldOpcode, fieldOwner, fieldDescriptor));
+
+        this.fieldOpcode     = fieldOpcode;
+        this.fieldOwner      = Objects.requireNonNull(fieldOwner);
+        this.fieldName       = Objects.requireNonNull(fieldName);
+        this.fieldDescriptor = Objects.requireNonNull(fieldDescriptor);
     }
 
-    @Override
-    public String getName() {
+    private static String deriveMethodName(final String fieldName) {
         /*
          * The possibility of collision with an existing method inside the owner would be too high if the original
          * field name was used as-is, so append a random part to the original field name to make it unique.
@@ -46,18 +48,19 @@ public final class FieldAccessorIdentifier extends MethodIdentifier {
          * Including the name of the field does not weaken the obfuscation effort, as the method body will contain
          * instructions to get/put the field which leak that information anyway.
          */
-        return getFieldName() + UUID.randomUUID().toString().replaceAll("-", "");
+        return fieldName + UUID.randomUUID().toString().replaceAll("-", "");
     }
 
-    @Override
-    public String getDescriptor() {
-        final var ownerDescriptor = 'L' + getFieldOwner() + ';';
-        return switch (getFieldOpcode()) {
-            case GETFIELD  -> "("  + ownerDescriptor + ")" + getFieldDescriptor();
-            case PUTFIELD  -> "("  + ownerDescriptor + getFieldDescriptor() + ")V";
-            case GETSTATIC -> "()" + getFieldDescriptor();
-            case PUTSTATIC -> "("  + getFieldDescriptor() + ")V";
-            default -> throw new IllegalArgumentException("Unrecognized field opcode '%d'".formatted(opcode));
+    private static String deriveMethodDescriptor(final int    fieldOpcode,
+                                                 final String fieldOwner,
+                                                 final String fieldDescriptor) {
+        final var ownerDescriptor = 'L' + fieldOwner + ';';
+        return switch (fieldOpcode) {
+            case GETFIELD  -> "("  + ownerDescriptor + ")" + fieldDescriptor;
+            case PUTFIELD  -> "("  + ownerDescriptor + fieldDescriptor + ")V";
+            case GETSTATIC -> "()" + fieldDescriptor;
+            case PUTSTATIC -> "("  + fieldDescriptor + ")V";
+            default -> throw new IllegalArgumentException("Unrecognized field opcode '%d'".formatted(fieldOpcode));
         };
     }
 
@@ -69,18 +72,18 @@ public final class FieldAccessorIdentifier extends MethodIdentifier {
     }
 
     public int getFieldOpcode() {
-        return opcode;
+        return fieldOpcode;
     }
 
     public String getFieldOwner() {
-        return owner;
+        return fieldOwner;
     }
 
     public String getFieldName() {
-        return name;
+        return fieldName;
     }
 
     public String getFieldDescriptor() {
-        return descriptor;
+        return fieldDescriptor;
     }
 }

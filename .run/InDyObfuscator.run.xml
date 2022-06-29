@@ -1,5 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="InDyObfuscator" type="Application" factoryName="Application">
+    <output_file path="$PROJECT_DIR$/native/bootstrap.c" is_save="true" />
     <option name="MAIN_CLASS_NAME" value="dev.blanke.indyobfuscator.InDyObfuscator" />
     <module name="indy-obfuscator" />
     <option name="PROGRAM_PARAMETERS" value="$ProjectFileDir$/target/indy-obfuscator-1.0-SNAPSHOT.jar -o $ProjectFileDir$/target/indy-obfuscator-1.0-SNAPSHOT.obf.jar -I dev\.blanke\.indyobfuscator\..* --bsm-template $ProjectFileDir$/native/bootstrap.c.ftl" />
