@@ -1,4 +1,4 @@
-package dev.blanke.indyobfuscator;
+package dev.blanke.indyobfuscator.visitor;
 
 /**
  * A {@code BootstrapMethodConflictException} is thrown if a method with the same name and descriptor as the bootstrap

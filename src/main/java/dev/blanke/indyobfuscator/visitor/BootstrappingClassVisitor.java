@@ -8,8 +8,6 @@ import org.objectweb.asm.Handle;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.commons.GeneratorAdapter;
 
-import dev.blanke.indyobfuscator.BootstrapMethodConflictException;
-
 import static org.objectweb.asm.Opcodes.*;
 import static org.objectweb.asm.Type.CHAR_TYPE;
 import static org.objectweb.asm.Type.getType;

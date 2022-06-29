@@ -1,88 +1,39 @@
 package dev.blanke.indyobfuscator;
 
-import java.io.File;
 import java.io.PrintWriter;
-import java.lang.invoke.CallSite;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
-import java.nio.file.Path;
-import java.util.List;
 import java.util.concurrent.Callable;
-import java.util.function.Predicate;
 import java.util.jar.Attributes.Name;
-import java.util.regex.Pattern;
 
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Handle;
-import org.objectweb.asm.Type;
 import org.objectweb.asm.util.CheckClassAdapter;
 
 import picocli.CommandLine;
-import picocli.CommandLine.Option;
-import picocli.CommandLine.Parameters;
+import picocli.CommandLine.Mixin;
 
 import dev.blanke.indyobfuscator.mapping.SequentialSymbolMapping;
 import dev.blanke.indyobfuscator.mapping.SymbolMapping;
 import dev.blanke.indyobfuscator.template.DataModel;
 import dev.blanke.indyobfuscator.template.FreeMarkerTemplateEngine;
 import dev.blanke.indyobfuscator.template.TemplateEngine;
+import dev.blanke.indyobfuscator.visitor.BootstrapMethodConflictException;
 import dev.blanke.indyobfuscator.visitor.BootstrappingClassVisitor;
 import dev.blanke.indyobfuscator.visitor.FieldAccessWrappingClassVisitor;
 import dev.blanke.indyobfuscator.visitor.ObfuscatingClassVisitor;
 
 public final class InDyObfuscator implements Callable<Integer> {
 
-    @Parameters(
-        index       = "0",
-        description = "The .jar or .class file to be obfuscated.")
-    private Path input;
-
-    @Option(
-        names       = { "-o", "--output" },
-        description = "Write obfuscated content to file instead of manipulating input in place.")
-    private Path output;
-
-    @Option(
-        names       = { "--bsm-name", "--bootstrap-method-name" },
-        description = """
-            The name to use for the generated bootstrap method. May have to be changed if the owning class defines a
-            conflicting method.
-            Defaults to "bootstrap" if unspecified.
-            """,
-        defaultValue = BOOTSTRAP_METHOD_DEFAULT_NAME,
-        paramLabel   = "<identifier>")
-    private String bootstrapMethodName;
-
-    @Option(
-        names       = { "--bsm-owner", "--bootstrap-method-owner" },
-        description = """
-            Fully qualified name of a class from the jar file which should contain the bootstrap method.
-            Defaults to Main-Class of jar file if unspecified.""",
-        paramLabel  = "<fqcn>")
-    private String bootstrapMethodOwnerFqcn;
-
-    @Option(
-        names       = { "--bsm-template", "--bootstrap-method-template" },
-        description = """
-            Template file containing the native bootstrap method implementation.
-            The symbol mapping created during obfuscation will be passed to the template as parameter.
-            """,
-        paramLabel = "<template-file>")
-    private File bootstrapMethodTemplate;
-
-    /** @see #setIncludePatterns(List) */
-    private List<Predicate<String>> includePatternMatchPredicates = List.of();
+    @Mixin
+    private Arguments arguments;
 
     /**
      * A reference to the bootstrap method to which {@code invokedynamic} instructions delegate.
      *
      * The owner of the bootstrap method depends on the obfuscation taking place: if a class file is being obfuscated,
-     * the contained class is also the owner of the bootstrap method. In case a jar file is being obfuscated,
-     * the main class will be the owner.
-     *
-     * @see #BOOTSTRAP_METHOD_DESCRIPTOR
+     * that class will also be the owner of the bootstrap method. In case a jar file is being obfuscated,
+     * the main class will be the owner unless a different owner is specified using command-line arguments.
      */
     private Handle bootstrapMethodHandle;
 
@@ -94,27 +45,9 @@ public final class InDyObfuscator implements Callable<Integer> {
 
     private final TemplateEngine templateEngine = new FreeMarkerTemplateEngine();
 
-    /**
-     * @implNote Make sure to update the source code passed to tests when changing this value.
-     */
-    static final String BOOTSTRAP_METHOD_DEFAULT_NAME = "bootstrap";
-
-    /**
-     * The method descriptor specifying the signature of the used bootstrap method.
-     *
-     * @see #bootstrapMethodHandle
-     */
-    static final String BOOTSTRAP_METHOD_DESCRIPTOR =
-        "(" + Type.getDescriptor(MethodHandles.Lookup.class)
-            + Type.getDescriptor(String.class)     // invokedName
-            + Type.getDescriptor(MethodType.class) // invokedType
-            +
-        ")" + Type.getDescriptor(CallSite.class);
-
-    InDyObfuscator(final boolean verify) {
-        this.verify = verify;
-
-        verificationResultsPrintWriter = verify ? new PrintWriter(System.err) : null;
+    public InDyObfuscator(final boolean verify) {
+        //noinspection AssignmentUsedAsCondition
+        verificationResultsPrintWriter = (this.verify = verify) ? new PrintWriter(System.err) : null;
     }
 
     public static void main(final String... args) {
@@ -125,11 +58,11 @@ public final class InDyObfuscator implements Callable<Integer> {
     @Override
     public Integer call() throws Exception {
         try {
-            InputType.determine(input).obfuscate(this);
+            InputType.determine(arguments.getInput()).obfuscate(this);
 
-            if (bootstrapMethodTemplate != null) {
-                templateEngine.process(bootstrapMethodTemplate, new DataModel(bootstrapMethodHandle, symbolMapping),
-                    new PrintWriter(System.out));
+            if (arguments.getBootstrapMethodTemplate() != null) {
+                templateEngine.process(arguments.getBootstrapMethodTemplate(),
+                    new DataModel(bootstrapMethodHandle, symbolMapping), new PrintWriter(System.out));
             }
             return 0;
         } catch (final BootstrapMethodOwnerMissingException exception) {
@@ -147,7 +80,7 @@ public final class InDyObfuscator implements Callable<Integer> {
         }
     }
 
-    void wrapFieldAccesses(final ClassReader reader, final ClassWriter writer) {
+    public void wrapFieldAccesses(final ClassReader reader, final ClassWriter writer) {
         ClassVisitor visitor = new FieldAccessWrappingClassVisitor(writer);
         if (verify)
             visitor = new CheckClassAdapter(visitor);
@@ -155,7 +88,7 @@ public final class InDyObfuscator implements Callable<Integer> {
         verifyIfEnabled(writer);
     }
 
-    void addBootstrapMethod(final ClassReader reader, final ClassWriter writer) {
+    public void addBootstrapMethod(final ClassReader reader, final ClassWriter writer) {
         ClassVisitor visitor = new BootstrappingClassVisitor(writer, bootstrapMethodHandle);
         if (verify)
             visitor = new CheckClassAdapter(visitor);
@@ -163,7 +96,7 @@ public final class InDyObfuscator implements Callable<Integer> {
         verifyIfEnabled(writer);
     }
 
-    void obfuscate(final ClassReader reader, final ClassWriter writer) {
+    public void obfuscate(final ClassReader reader, final ClassWriter writer) {
         ClassVisitor visitor = new ObfuscatingClassVisitor(writer, symbolMapping, bootstrapMethodHandle);
         if (verify)
             visitor = new CheckClassAdapter(visitor);
@@ -178,26 +111,8 @@ public final class InDyObfuscator implements Callable<Integer> {
         }
     }
 
-    public Path getInput() {
-        return input;
-    }
-
-    /**
-     * Returns the {@link File} to which the obfuscated output should be written.
-     *
-     * @return {@link #output} if the option was given on the command line, otherwise {@link #input} for in-place
-     *         obfuscation.
-     */
-    public Path getOutput() {
-        return (output != null) ? output : input;
-    }
-
-    public String getBootstrapMethodName() {
-        return bootstrapMethodName;
-    }
-
-    public String getBootstrapMethodOwnerFqcn() {
-        return bootstrapMethodOwnerFqcn;
+    public Arguments getArguments() {
+        return arguments;
     }
 
     public Handle getBootstrapMethodHandle() {
@@ -206,20 +121,5 @@ public final class InDyObfuscator implements Callable<Integer> {
 
     public void setBootstrapMethodHandle(final Handle bootstrapMethodHandle) {
         this.bootstrapMethodHandle = bootstrapMethodHandle;
-    }
-
-    @Option(
-        names       = { "-I", "--include" },
-        description = """
-            Regular expression limiting obfuscation to matched fully qualified class name.
-            E.g. 'dev\\.blanke\\.indyobfuscator\\.*'.
-            """,
-        paramLabel = "<regex>")
-    private void setIncludePatterns(final List<Pattern> includePatterns) {
-        includePatternMatchPredicates = includePatterns.stream().map(Pattern::asMatchPredicate).toList();
-    }
-
-    public List<Predicate<String>> getIncludePatternMatchPredicates() {
-        return includePatternMatchPredicates;
     }
 }

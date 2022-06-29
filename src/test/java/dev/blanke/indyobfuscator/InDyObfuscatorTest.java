@@ -18,6 +18,8 @@ import org.objectweb.asm.tree.InvokeDynamicInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 
+import dev.blanke.indyobfuscator.visitor.BootstrapMethodConflictException;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 import static org.objectweb.asm.Opcodes.*;
@@ -30,10 +32,10 @@ final class InDyObfuscatorTest {
 
     @BeforeEach
     void setUp() {
+        final var arguments = new Arguments();
         obfuscator = new InDyObfuscator(true);
-        obfuscator.setBootstrapMethodHandle(
-            new Handle(H_INVOKESTATIC, "", InDyObfuscator.BOOTSTRAP_METHOD_DEFAULT_NAME,
-                InDyObfuscator.BOOTSTRAP_METHOD_DESCRIPTOR, false));
+        obfuscator.setBootstrapMethodHandle(new Handle(H_INVOKESTATIC, "",
+            arguments.getBootstrapMethodName(), arguments.getBootstrapMethodDescriptor(), false));
     }
 
     private static MethodNode assertClinitExists(final ClassNode classNode) {

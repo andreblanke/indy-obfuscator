@@ -8,8 +8,6 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.function.Predicate;
-import java.util.jar.Attributes;
-import java.util.jar.JarFile;
 
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
@@ -21,19 +19,20 @@ enum InputType {
     CLASS {
         @Override
         void obfuscate(final InDyObfuscator obfuscator) throws IOException {
-            try (final var inputStream = Files.newInputStream(obfuscator.getInput())) {
+            final var arguments = obfuscator.getArguments();
+            try (final var inputStream = Files.newInputStream(arguments.getInput())) {
                 var reader = new ClassReader(inputStream);
                 var writer = new ClassWriter(reader, 0);
 
                 obfuscator.setBootstrapMethodHandle(new Handle(Opcodes.H_INVOKESTATIC, reader.getClassName(),
-                    obfuscator.getBootstrapMethodName(), InDyObfuscator.BOOTSTRAP_METHOD_DESCRIPTOR, false));
+                    arguments.getBootstrapMethodName(), arguments.getBootstrapMethodDescriptor(), false));
                 obfuscator.obfuscate(reader, writer);
 
                 reader = new ClassReader(writer.toByteArray());
                 writer = new ClassWriter(reader, 0);
                 obfuscator.addBootstrapMethod(reader, writer);
 
-                Files.write(obfuscator.getOutput(), writer.toByteArray());
+                Files.write(arguments.getOutput(), writer.toByteArray());
             }
         }
     },
@@ -41,12 +40,13 @@ enum InputType {
     JAR {
         @Override
         void obfuscate(final InDyObfuscator obfuscator) throws IOException, BootstrapMethodOwnerMissingException {
-            Files.copy(obfuscator.getInput(), obfuscator.getOutput());
+            final var arguments = obfuscator.getArguments();
+            Files.copy(arguments.getInput(), arguments.getOutput());
 
-            try (final var outputFS = FileSystems.newFileSystem(obfuscator.getOutput())) {
-                final var bootstrapMethodOwner = getBootstrapMethodOwner(obfuscator);
+            try (final var outputFS = FileSystems.newFileSystem(arguments.getOutput())) {
+                final var bootstrapMethodOwner = arguments.getBootstrapMethodOwner();
                 obfuscator.setBootstrapMethodHandle(new Handle(Opcodes.H_INVOKESTATIC, bootstrapMethodOwner,
-                    obfuscator.getBootstrapMethodName(), InDyObfuscator.BOOTSTRAP_METHOD_DESCRIPTOR, false));
+                    arguments.getBootstrapMethodName(), arguments.getBootstrapMethodDescriptor(), false));
 
                 // Do a first pass over the jar file entries for the actual obfuscation of classes.
                 obfuscateJarEntries(obfuscator, outputFS);
@@ -62,41 +62,11 @@ enum InputType {
             }
         }
 
-        /**
-         * Returns the internal name of the class which should contain the bootstrap method, derived from either
-         * {@link InDyObfuscator#getBootstrapMethodOwnerFqcn()} or the value of the {@code Main-Class} attribute
-         * in the input jar file's MANIFEST.MF.
-         *
-         * @param obfuscator The obfuscator instance containing the parsed command-line options.
-         *
-         * @return The internal name of the class which should contain the bootstrap method.
-         *
-         * @throws IOException If an I/O error occurs trying to access the jar file's MANIFEST.MF.
-         *
-         * @throws BootstrapMethodOwnerMissingException If the bootstrap method owner could not be determined due
-         *                                              to a missing {@code Main-Class} attribute and the user not
-         *                                              specifying the bootstrap method owner manually using the
-         *                                              {@code --bootstrap-method-owner} command-line option.
-         */
-        private String getBootstrapMethodOwner(final InDyObfuscator obfuscator)
-            throws IOException, BootstrapMethodOwnerMissingException {
-            var fqcn = obfuscator.getBootstrapMethodOwnerFqcn();
-            if (fqcn == null) {
-                try (final var jarFile = new JarFile(obfuscator.getInput().toFile())) {
-                    fqcn = jarFile.getManifest().getMainAttributes().getValue(Attributes.Name.MAIN_CLASS);
-                }
-            }
-            if (fqcn == null) {
-                throw new BootstrapMethodOwnerMissingException();
-            }
-            return fqcn.replace('.', '/');
-        }
-
         private static void obfuscateJarEntries(final InDyObfuscator obfuscator,
-                                                final FileSystem fileSystem) throws IOException {
+                                                final FileSystem     fileSystem) throws IOException {
             final Predicate<Path> matchesIncludePattern = path -> {
-                final var fqcn = path.toString().replace('/', '.');
-                final var predicates = obfuscator.getIncludePatternMatchPredicates();
+                final var fqcn       = path.toString().replace('/', '.');
+                final var predicates = obfuscator.getArguments().getIncludePatternMatchPredicates();
                 return predicates.isEmpty() || predicates.stream().anyMatch(predicate -> predicate.test(fqcn));
             };
 
