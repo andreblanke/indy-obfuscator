@@ -91,7 +91,7 @@ JNIEXPORT jobject JNICALL Java_${bootstrapMethodOwner}_${bootstrapMethodName}
     <#list dataModel.symbolMapping() as mapping>
     <#assign methodId = mapping.getKey()>
     case ${mapping.getValue()}:
-        return Resolve(env, lookup, "${methodId.getOwner()}", "${methodId.getName()}", invokedType, ${methodId.getOpcode()});
+        return Resolve(env, lookup, "${methodId.owner()}", "${methodId.name()}", invokedType, ${methodId.opcode()});
     </#list>
     default:
         return NULL;
