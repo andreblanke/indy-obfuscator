@@ -17,18 +17,14 @@ public final class FieldAccessorIdentifier extends MethodIdentifier {
 
     private final String fieldDescriptor;
 
-    public FieldAccessorIdentifier(final int fieldOpcode, final String fieldOwner, final String fieldName,
-                                   final String fieldDescriptor) {
+    public FieldAccessorIdentifier(final String owner, final int fieldOpcode, final String fieldOwner,
+                                   final String fieldName, final String fieldDescriptor) {
         /*
          * Always generate the synthetic accessor as static method for simplicity, as the field being accessed might
          * not necessarily be located in the class containing the field instruction that will be replaced by a method
          * invocation.
-         *
-         * MethodIdentifier.owner is unused, as the field accessor wrapper is always generated in the class containing
-         * the field access. However, it may not be null for the hash code computation, which is why an empty string is
-         * passed.
          */
-        super(INVOKESTATIC, "",
+        super(INVOKESTATIC, owner,
             deriveMethodName(fieldName), deriveMethodDescriptor(fieldOpcode, fieldOwner, fieldDescriptor));
 
         this.fieldOpcode     = fieldOpcode;

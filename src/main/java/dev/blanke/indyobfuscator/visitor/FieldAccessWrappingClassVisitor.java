@@ -12,6 +12,14 @@ import static org.objectweb.asm.Opcodes.*;
 
 public final class FieldAccessWrappingClassVisitor extends ClassVisitor {
 
+    /**
+     * Name of the class currently being visited which is passed to created {@link FieldAccessWrappingMethodVisitor}
+     * instances.
+     *
+     * @see #visitMethod(int, String, String, String, String[])
+     */
+    private String className;
+
     private final Stream.Builder<FieldAccessWrappingMethodVisitor> methodVisitors = Stream.builder();
 
     public FieldAccessWrappingClassVisitor(final ClassVisitor classVisitor) {
@@ -19,10 +27,16 @@ public final class FieldAccessWrappingClassVisitor extends ClassVisitor {
     }
 
     @Override
+    public void visit(final int version, final int access, final String name, final String signature,
+                      final String superName, final String[] interfaces) {
+        super.visit(version, access, (className = name), signature, superName, interfaces);
+    }
+
+    @Override
     public MethodVisitor visitMethod(final int access, final String name, final String descriptor,
                                      final String signature, final String[] exceptions) {
         final var visitor = new FieldAccessWrappingMethodVisitor(api,
-            super.visitMethod(access, name, descriptor, signature, exceptions));
+            super.visitMethod(access, name, descriptor, signature, exceptions), className);
         methodVisitors.accept(visitor);
         return visitor;
     }
