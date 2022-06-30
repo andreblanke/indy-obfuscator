@@ -8,29 +8,29 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.jetbrains.annotations.NotNull;
 
-import dev.blanke.indyobfuscator.MethodIdentifier;
-
 /**
- * A {@link SymbolMapping} implementation which assigns a unique number for each encountered {@link MethodIdentifier}.
- *
- * Because the iteration order of class files within a .jar file and the iteration order of methods within each class
- * might be stable, the obfuscation might be weaker when this {@code SymbolMapping} implementation is used,
- * as the mapping could be deterministic.
+ * A {@link SymbolMapping} implementation which assigns a unique, sequentially-increasing number for each encountered
+ * {@link MethodInvocation}.
+ * <p>
+ * Because the iteration order of class files within a jar file and the iteration order of method instructions within
+ * each class might be stable (depending on the {@link java.nio.file.FileSystem} implementation and the implementation
+ * details of the ASM library), the obfuscation might be weaker when this {@code SymbolMapping} implementation is used,
+ * as the generated mapping could be deterministic.
  */
 public final class SequentialSymbolMapping implements SymbolMapping {
 
     private final AtomicInteger counter = new AtomicInteger();
 
-    private final Map<MethodIdentifier, Integer> symbolMapping = new HashMap<>();
+    private final Map<MethodInvocation, Integer> symbolMapping = new HashMap<>();
 
     @NotNull
     @Override
-    public Iterator<Entry<MethodIdentifier, Integer>> iterator() {
+    public Iterator<Entry<MethodInvocation, Integer>> iterator() {
         return symbolMapping.entrySet().iterator();
     }
 
     @Override
-    public String getName(final MethodIdentifier methodIdentifier) {
-        return symbolMapping.computeIfAbsent(methodIdentifier, key -> counter.getAndIncrement()).toString();
+    public String add(final MethodInvocation methodInvocation) {
+        return symbolMapping.computeIfAbsent(methodInvocation, key -> counter.getAndIncrement()).toString();
     }
 }

@@ -1,4 +1,4 @@
-package dev.blanke.indyobfuscator.visitor;
+package dev.blanke.indyobfuscator.visitor.obfuscation;
 
 import java.lang.System.Logger;
 import java.lang.System.Logger.Level;
@@ -7,7 +7,7 @@ import java.util.Objects;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.MethodVisitor;
 
-import dev.blanke.indyobfuscator.MethodIdentifier;
+import dev.blanke.indyobfuscator.mapping.MethodInvocation;
 import dev.blanke.indyobfuscator.mapping.SymbolMapping;
 
 import static org.objectweb.asm.Opcodes.*;
@@ -86,7 +86,7 @@ final class ObfuscatingMethodVisitor extends MethodVisitor {
                 return;
             }
         }
-        final var invokeDynamicName = symbolMapping.getName(new MethodIdentifier(opcode, owner, name, descriptor));
+        final var invokeDynamicName = symbolMapping.add(new MethodInvocation(opcode, owner, name, descriptor));
         super.visitInvokeDynamicInsn(invokeDynamicName, invokeDynamicDescriptor, bootstrapMethodHandle);
     }
 }

@@ -1,4 +1,4 @@
-package dev.blanke.indyobfuscator.visitor;
+package dev.blanke.indyobfuscator.visitor.bootstrap;
 
 import java.io.File;
 import java.util.Objects;

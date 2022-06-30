@@ -18,10 +18,10 @@ import dev.blanke.indyobfuscator.mapping.SymbolMapping;
 import dev.blanke.indyobfuscator.template.DataModel;
 import dev.blanke.indyobfuscator.template.FreeMarkerTemplateEngine;
 import dev.blanke.indyobfuscator.template.TemplateEngine;
-import dev.blanke.indyobfuscator.visitor.BootstrapMethodConflictException;
-import dev.blanke.indyobfuscator.visitor.BootstrappingClassVisitor;
-import dev.blanke.indyobfuscator.visitor.FieldAccessWrappingClassVisitor;
-import dev.blanke.indyobfuscator.visitor.ObfuscatingClassVisitor;
+import dev.blanke.indyobfuscator.visitor.bootstrap.BootstrapMethodConflictException;
+import dev.blanke.indyobfuscator.visitor.bootstrap.BootstrappingClassVisitor;
+import dev.blanke.indyobfuscator.visitor.field.FieldAccessWrappingClassVisitor;
+import dev.blanke.indyobfuscator.visitor.obfuscation.ObfuscatingClassVisitor;
 
 public final class InDyObfuscator implements Callable<Integer> {
 

@@ -18,7 +18,7 @@ import org.objectweb.asm.tree.InvokeDynamicInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 
-import dev.blanke.indyobfuscator.visitor.BootstrapMethodConflictException;
+import dev.blanke.indyobfuscator.visitor.bootstrap.BootstrapMethodConflictException;
 
 import static org.junit.jupiter.api.Assertions.*;
 

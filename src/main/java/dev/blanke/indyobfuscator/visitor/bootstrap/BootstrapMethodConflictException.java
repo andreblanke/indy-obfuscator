@@ -1,4 +1,4 @@
-package dev.blanke.indyobfuscator.visitor;
+package dev.blanke.indyobfuscator.visitor.bootstrap;
 
 /**
  * A {@code BootstrapMethodConflictException} is thrown if a method with the same name and descriptor as the bootstrap
@@ -7,7 +7,7 @@ package dev.blanke.indyobfuscator.visitor;
  * @implNote Cannot be a checked {@link Exception}, as {@link org.objectweb.asm.ClassVisitor}s must be able to throw
  *           this exception from overridden methods.
  *
- * @see dev.blanke.indyobfuscator.visitor.BootstrappingClassVisitor
+ * @see BootstrappingClassVisitor
  */
 public final class BootstrapMethodConflictException extends RuntimeException {
 }

@@ -2,23 +2,21 @@ package dev.blanke.indyobfuscator.mapping;
 
 import java.util.Map.Entry;
 
-import dev.blanke.indyobfuscator.MethodIdentifier;
-
 /**
- * A {@code SymbolMapping} stores an identifier for each {@link MethodIdentifier} that is associated with a method to
- * be obfuscated and allows iteration of these mappings.
- *
- * An individual identifier can be retrieved using the {@link #getName(MethodIdentifier)} method.
+ * A {@code SymbolMapping} stores a unique identifier for each {@link MethodInvocation} that will be obfuscated.
+ * <p>
+ * {@code MethodInvocation}s can be included in a {@code SymbolMapping} via {@link #add(MethodInvocation)},
+ * which will cause the generation of an implementation-dependent, unique identifier.
  */
-public interface SymbolMapping extends Iterable<Entry<MethodIdentifier, Integer>> {
+public interface SymbolMapping extends Iterable<Entry<MethodInvocation, Integer>> {
 
     /**
-     * Retrieves a unique name for the provided {@link MethodIdentifier} which will be passed to the
-     * {@code invokedynamic} instruction.
+     * Computes a unique name for the provided {@link MethodInvocation} and stores the association in this
+     * {@code SymbolMapping}.
      *
-     * @param methodIdentifier Describes the method for which a unique name should be returned.
+     * @param methodInvocation Describes the method invocation for which a unique name should be returned.
      *
      * @return A unique name for the provided {@code MethodIdentifier}.
      */
-    String getName(MethodIdentifier methodIdentifier);
+    String add(MethodInvocation methodInvocation);
 }

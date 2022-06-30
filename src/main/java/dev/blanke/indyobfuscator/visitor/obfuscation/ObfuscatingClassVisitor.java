@@ -1,4 +1,4 @@
-package dev.blanke.indyobfuscator.visitor;
+package dev.blanke.indyobfuscator.visitor.obfuscation;
 
 import java.util.Objects;
 

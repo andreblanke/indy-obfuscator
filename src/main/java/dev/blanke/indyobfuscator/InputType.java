@@ -19,9 +19,15 @@ import org.objectweb.asm.Opcodes;
 
 /**
  * Contains the logic for the obfuscation of artifacts of different formats.
+ * <p>
+ * {@link InputType#determine(Path)} can be used to retrieve the correct {@code InputType} to be used for the input file
+ * located at the provided path.
  */
 enum InputType {
 
+    /**
+     * Enables the obfuscation of a single {@code .class} files outside the context of a jar file or similar.
+     */
     CLASS {
         @Override
         void obfuscate(final InDyObfuscator obfuscator) throws IOException {
@@ -48,7 +54,12 @@ enum InputType {
         }
     },
 
+    /**
+     * Enables the obfuscation of a set of {@code .class} files located within a jar file.
+     */
     JAR {
+        private static final String CLASS_FILE_EXTENSION = ".class";
+
         @Override
         void obfuscate(final InDyObfuscator obfuscator) throws IOException, BootstrapMethodOwnerMissingException {
             final var arguments = obfuscator.getArguments();
@@ -88,7 +99,7 @@ enum InputType {
                 throws IOException {
             try (final var fileStream = Files.walk(fileSystem.getPath("/"))) {
                 fileStream
-                    .filter(path -> Files.isRegularFile(path) && path.toString().endsWith(".class")
+                    .filter(path -> Files.isRegularFile(path) && path.toString().endsWith(CLASS_FILE_EXTENSION)
                         && obfuscator.getArguments().matchesIncludePattern(path))
                     .forEach(path -> {
                         try (final var classInputStream = Files.newInputStream(path)) {
@@ -127,7 +138,7 @@ enum InputType {
         private static void addBootstrapMethod(final InDyObfuscator obfuscator,
                                                final FileSystem     fileSystem) throws IOException {
             final var bootstrapMethodOwnerPath =
-                fileSystem.getPath(obfuscator.getBootstrapMethodHandle().getOwner() + ".class");
+                fileSystem.getPath(obfuscator.getBootstrapMethodHandle().getOwner() + CLASS_FILE_EXTENSION);
 
             final ClassWriter writer;
             try (final var bootstrapMethodOwnerInputStream = Files.newInputStream(bootstrapMethodOwnerPath)) {
@@ -141,6 +152,17 @@ enum InputType {
 
     private static final Logger LOGGER = System.getLogger(InputType.class.getName());
 
+    /**
+     * Obfuscates the input by treating it as the current {@code InputType}.
+     *
+     * @param obfuscator The obfuscator instance containing the arguments and enabling the execution of basic
+     *                   obfuscation steps.
+     *
+     * @throws IOException If reading the input or writing the result of the obfuscation process fails.
+     *
+     * @throws BootstrapMethodOwnerMissingException If no class could be determined to be the owner of the generated
+     *                                              bootstrap method.
+     */
     abstract void obfuscate(InDyObfuscator obfuscator) throws IOException, BootstrapMethodOwnerMissingException;
 
     public static InputType determine(final Path path) throws IOException {

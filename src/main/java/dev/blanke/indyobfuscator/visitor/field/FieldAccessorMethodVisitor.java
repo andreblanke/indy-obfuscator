@@ -1,4 +1,4 @@
-package dev.blanke.indyobfuscator.visitor;
+package dev.blanke.indyobfuscator.visitor.field;
 
 import java.util.Objects;
 
@@ -9,12 +9,13 @@ import static org.objectweb.asm.Opcodes.*;
 
 abstract sealed class FieldAccessorMethodVisitor extends GeneratorAdapter {
 
-    protected final FieldAccessorIdentifier fieldAccessor;
+    protected final FieldAccess fieldAccessor;
 
     protected FieldAccessorMethodVisitor(final int api, final MethodVisitor methodVisitor,
-                                         final FieldAccessorIdentifier fieldAccessor) {
-        super(api, methodVisitor, fieldAccessor.getAccess(), fieldAccessor.getName(), fieldAccessor.getDescriptor());
-
+                                         final FieldAccess fieldAccessor) {
+        super(api, methodVisitor, fieldAccessor.syntheticAccessorInvocationAccess(),
+            fieldAccessor.syntheticAccessorInvocation().name(),
+            fieldAccessor.syntheticAccessorInvocation().descriptor());
         this.fieldAccessor = Objects.requireNonNull(fieldAccessor);
     }
 
@@ -27,17 +28,17 @@ abstract sealed class FieldAccessorMethodVisitor extends GeneratorAdapter {
      */
     @Override
     public void visitCode() {
-        final var identifier = fieldAccessor.getFieldIdentifier();
-        visitFieldInsn(fieldAccessor.getFieldOpcode(), identifier.owner(), identifier.name(), identifier.descriptor());
+        final var identifier = fieldAccessor.fieldIdentifier();
+        visitFieldInsn(fieldAccessor.opcode(), identifier.owner(), identifier.name(), identifier.descriptor());
         returnValue();
     }
 
     @Override
     public void visitMaxs(int maxStack, int maxLocals) {
         final var isVirtual =
-            ((fieldAccessor.getFieldOpcode() == PUTFIELD) || (fieldAccessor.getFieldOpcode() == GETFIELD));
+            ((fieldAccessor.opcode() == PUTFIELD) || (fieldAccessor.opcode() == GETFIELD));
         final var isSetter =
-            ((fieldAccessor.getFieldOpcode() == PUTFIELD) || (fieldAccessor.getFieldOpcode() == PUTSTATIC));
+            ((fieldAccessor.opcode() == PUTFIELD) || (fieldAccessor.opcode() == PUTSTATIC));
 
         /*
          * The field accessor takes up at least one stack slot for the setter argument/get* return value,
@@ -58,14 +59,14 @@ abstract sealed class FieldAccessorMethodVisitor extends GeneratorAdapter {
     static final class FieldGetterMethodVisitor extends FieldAccessorMethodVisitor {
 
         FieldGetterMethodVisitor(final int api, final MethodVisitor methodVisitor,
-                                 final FieldAccessorIdentifier fieldAccessor) {
+                                 final FieldAccess fieldAccessor) {
             super(api, methodVisitor, fieldAccessor);
         }
 
         @Override
         public void visitCode() {
             // Push instance reference in case the field is an instance member.
-            if (fieldAccessor.getFieldOpcode() == GETFIELD)
+            if (fieldAccessor.opcode() == GETFIELD)
                 loadArg(0);
             // Invoke original field instruction and return.
             super.visitCode();
@@ -75,7 +76,7 @@ abstract sealed class FieldAccessorMethodVisitor extends GeneratorAdapter {
     static final class FieldSetterMethodVisitor extends FieldAccessorMethodVisitor {
 
         FieldSetterMethodVisitor(final int api, final MethodVisitor methodVisitor,
-                                 final FieldAccessorIdentifier fieldAccessor) {
+                                 final FieldAccess fieldAccessor) {
             super(api, methodVisitor, fieldAccessor);
         }
 
@@ -84,7 +85,7 @@ abstract sealed class FieldAccessorMethodVisitor extends GeneratorAdapter {
             // Push field value or instance reference onto the stack.
             loadArg(0);
             // Push field value in case the field is an instance member.
-            if (fieldAccessor.getFieldOpcode() == PUTFIELD)
+            if (fieldAccessor.opcode() == PUTFIELD)
                 loadArg(1);
             // Invoke original field instruction and return.
             super.visitCode();
