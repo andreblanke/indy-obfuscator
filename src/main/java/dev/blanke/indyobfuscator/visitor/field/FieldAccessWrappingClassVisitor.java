@@ -97,8 +97,11 @@ public final class FieldAccessWrappingClassVisitor extends ClassVisitor {
             public void visitFieldInsn(final int opcode, final String owner, final String name,
                                        final String descriptor) {
                 final var fieldIdentifier = new FieldIdentifier(owner, name, descriptor);
-                if (finalFields.contains(fieldIdentifier)) {
-                    // Exclude the field instruction targeting a final field from obfuscation. TODO: Limit to put*.
+                if (((opcode == PUTFIELD) || (opcode == PUTSTATIC)) && finalFields.contains(fieldIdentifier)) {
+                    /*
+                     * Exclude PUT* instructions targeting a final field from obfuscation, as setting the final field
+                     * from a different context (other than <init> and <clinit>) would cause an IllegalAccessError.
+                     */
                     super.visitFieldInsn(opcode, owner, name, descriptor);
                     return;
                 }
