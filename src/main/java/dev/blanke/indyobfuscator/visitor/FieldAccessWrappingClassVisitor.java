@@ -4,6 +4,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
@@ -19,6 +20,8 @@ public final class FieldAccessWrappingClassVisitor extends ClassVisitor {
      * @see #visitMethod(int, String, String, String, String[])
      */
     private String className;
+
+    private final Set<FieldIdentifier> finalFields = new HashSet<>();
 
     /**
      * A set of {@link FieldAccessorIdentifier}s describing field accessors which will need to be generated.
@@ -36,13 +39,28 @@ public final class FieldAccessWrappingClassVisitor extends ClassVisitor {
     }
 
     @Override
+    public FieldVisitor visitField(final int access, final String name, final String descriptor, final String signature,
+                                   final Object value) {
+        if ((access & ACC_FINAL) != 0) {
+            finalFields.add(new FieldIdentifier(className, name, descriptor));
+        }
+        return super.visitField(access, name, descriptor, signature, value);
+    }
+
+    @Override
     public MethodVisitor visitMethod(final int access, final String name, final String descriptor,
                                      final String signature, final String[] exceptions) {
         return new MethodVisitor(api, super.visitMethod(access, name, descriptor, signature, exceptions)) {
             @Override
             public void visitFieldInsn(final int opcode, final String owner, final String name,
                                        final String descriptor) {
-                final var identifier = new FieldAccessorIdentifier(className, opcode, owner, name, descriptor);
+                final var fieldIdentifier = new FieldIdentifier(owner, name, descriptor);
+                if (finalFields.contains(fieldIdentifier)) {
+                    super.visitFieldInsn(opcode, owner, name, descriptor);
+                    return;
+                }
+
+                final var identifier = new FieldAccessorIdentifier(className, opcode, fieldIdentifier);
                 super.visitMethodInsn(identifier.getOpcode(), identifier.getOwner(), identifier.getName(),
                     identifier.getDescriptor(), false);
                 fieldAccessors.add(identifier);

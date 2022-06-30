@@ -11,26 +11,20 @@ public final class FieldAccessorIdentifier extends MethodIdentifier {
 
     private final int fieldOpcode;
 
-    private final String fieldOwner;
+    private final FieldIdentifier fieldIdentifier;
 
-    private final String fieldName;
-
-    private final String fieldDescriptor;
-
-    public FieldAccessorIdentifier(final String owner, final int fieldOpcode, final String fieldOwner,
-                                   final String fieldName, final String fieldDescriptor) {
+    public FieldAccessorIdentifier(final String owner, final int fieldOpcode, final FieldIdentifier fieldIdentifier) {
         /*
          * Always generate the synthetic accessor as static method for simplicity, as the field being accessed might
          * not necessarily be located in the class containing the field instruction that will be replaced by a method
          * invocation.
          */
         super(INVOKESTATIC, owner,
-            deriveMethodName(fieldName), deriveMethodDescriptor(fieldOpcode, fieldOwner, fieldDescriptor));
+            deriveMethodName(fieldIdentifier.name()),
+            deriveMethodDescriptor(fieldOpcode, fieldIdentifier.owner(), fieldIdentifier.descriptor()));
 
         this.fieldOpcode     = fieldOpcode;
-        this.fieldOwner      = Objects.requireNonNull(fieldOwner);
-        this.fieldName       = Objects.requireNonNull(fieldName);
-        this.fieldDescriptor = Objects.requireNonNull(fieldDescriptor);
+        this.fieldIdentifier = Objects.requireNonNull(fieldIdentifier);
     }
 
     private static String deriveMethodName(final String fieldName) {
@@ -71,15 +65,7 @@ public final class FieldAccessorIdentifier extends MethodIdentifier {
         return fieldOpcode;
     }
 
-    public String getFieldOwner() {
-        return fieldOwner;
-    }
-
-    public String getFieldName() {
-        return fieldName;
-    }
-
-    public String getFieldDescriptor() {
-        return fieldDescriptor;
+    public FieldIdentifier getFieldIdentifier() {
+        return fieldIdentifier;
     }
 }

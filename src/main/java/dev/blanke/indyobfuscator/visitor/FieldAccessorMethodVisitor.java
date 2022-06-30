@@ -27,8 +27,8 @@ abstract sealed class FieldAccessorMethodVisitor extends GeneratorAdapter {
      */
     @Override
     public void visitCode() {
-        visitFieldInsn(fieldAccessor.getFieldOpcode(), fieldAccessor.getFieldOwner(), fieldAccessor.getFieldName(),
-            fieldAccessor.getFieldDescriptor());
+        final var identifier = fieldAccessor.getFieldIdentifier();
+        visitFieldInsn(fieldAccessor.getFieldOpcode(), identifier.owner(), identifier.name(), identifier.descriptor());
         returnValue();
     }
 
