@@ -161,6 +161,7 @@ public final class Arguments {
 
     @Option(
         names       = { "--bsm-template", "--bootstrap-method-template" },
+        required    = true,
         description = """
             Template file containing the native bootstrap method implementation.
             The symbol mapping created during obfuscation will be passed to the template as parameter.
