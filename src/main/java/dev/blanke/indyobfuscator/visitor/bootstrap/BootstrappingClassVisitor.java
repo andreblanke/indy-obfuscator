@@ -65,8 +65,9 @@ public final class BootstrappingClassVisitor extends ClassVisitor {
         visitedClinit |= isClinit;
 
         final var methodVisitor = super.visitMethod(access, name, descriptor, signature, exceptions);
-        if (!isClinit)
+        if (!isClinit) {
             return methodVisitor;
+        }
         return new ClinitMethodVisitor(api, methodVisitor, access, name, descriptor);
     }
 

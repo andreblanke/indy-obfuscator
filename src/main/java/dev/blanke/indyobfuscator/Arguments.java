@@ -1,6 +1,5 @@
 package dev.blanke.indyobfuscator;
 
-import java.io.File;
 import java.io.IOException;
 import java.lang.invoke.CallSite;
 import java.lang.invoke.MethodHandles;
@@ -167,9 +166,9 @@ public final class Arguments {
             The symbol mapping created during obfuscation will be passed to the template as parameter.
             """,
         paramLabel = "<template-file>")
-    private File bootstrapMethodTemplate;
+    private Path bootstrapMethodTemplate;
 
-    public @Nullable File getBootstrapMethodTemplate() {
+    public @Nullable Path getBootstrapMethodTemplate() {
         return bootstrapMethodTemplate;
     }
     //endregion

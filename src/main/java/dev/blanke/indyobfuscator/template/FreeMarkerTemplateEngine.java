@@ -1,9 +1,9 @@
 package dev.blanke.indyobfuscator.template;
 
-import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.Writer;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import freemarker.ext.beans.BeansWrapperBuilder;
@@ -49,10 +49,10 @@ public final class FreeMarkerTemplateEngine implements TemplateEngine {
     }
 
     @Override
-    public void process(final File templateFile, final DataModel dataModel, final Writer output)
+    public void process(final Path templatePath, final DataModel dataModel, final Writer output)
             throws IOException, TemplateException {
-        try (final var reader = new FileReader(templateFile)) {
-            final var template = new Template(templateFile.getName(), reader, configuration);
+        try (final var reader = Files.newBufferedReader(templatePath)) {
+            final var template = new Template(templatePath.getFileName().toString(), reader, configuration);
 
             final var wrapper =
                 new BeansWrapperBuilder(template.getConfiguration().getIncompatibleImprovements()).build();

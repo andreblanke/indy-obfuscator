@@ -1,9 +1,9 @@
 package dev.blanke.indyobfuscator.template;
 
-import java.io.File;
 import java.io.Writer;
+import java.nio.file.Path;
 
 public interface TemplateEngine {
 
-    void process(File template, DataModel dataModel, Writer output) throws Exception;
+    void process(Path template, DataModel dataModel, Writer output) throws Exception;
 }
