@@ -93,6 +93,20 @@ enum InputType {
             }
         }
 
+        /**
+         * Walks through the {@code fileSystem}, applying the provided {@code transformation} to all matching class
+         * files according to {@link Arguments#matchesIncludePattern(Path)} and writes the result of the transformation
+         * back to the file on the filesystem.
+         *
+         * @param obfuscator The obfuscator containing the parsed {@link Arguments}.
+         *
+         * @param fileSystem The {@link FileSystem} containing candidate files for obfuscation.
+         *
+         * @param transformation A transformation to apply to the {@link ClassReader} and {@link ClassWriter} of a
+         *                       matched class file.
+         *
+         * @throws IOException If reading or writing a class file fails.
+         */
         private static void transformIncludedClassFiles(final InDyObfuscator                       obfuscator,
                                                         final FileSystem                           fileSystem,
                                                         final BiConsumer<ClassReader, ClassWriter> transformation)
@@ -165,6 +179,16 @@ enum InputType {
      */
     abstract void obfuscate(InDyObfuscator obfuscator) throws IOException, BootstrapMethodOwnerMissingException;
 
+    /**
+     * Determines the correct {@code InputType} to be used for the file located at the provided {@code path} by checking
+     * the file extension or the content of the file.
+     *
+     * @param path Path of the file that should be used as input for the obfuscation.
+     *
+     * @return An {@code InputType} capable of obfuscating the file at the {@code path}.
+     *
+     * @throws IOException If reading the file located at the {@code path} fails.
+     */
     public static InputType determine(final Path path) throws IOException {
         try (final var inputStream = new DataInputStream(Files.newInputStream(path))) {
             // Check for the magic number of .class files and treat input as jar file if it is not a .class file.
