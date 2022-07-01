@@ -18,11 +18,13 @@ native code.
 This project uses [Apache Maven](https://maven.apache.org/) as its build system. To compile the obfuscator from source,
 first clone the repository and navigate to its root directory.
 
-An executable JAR file can be created at `target/indy-obfuscator-<version>.jar` by executing
+An executable JAR file can be created by executing
 
 ```shell
 mvn package
 ```
+
+The packaged artifact will be located inside the `target` directory.
 
 ### Additional prerequisites
 
@@ -34,7 +36,8 @@ needed:
   or [MSVC](https://visualstudio.microsoft.com/vs/features/cplusplus/)), for the compilation of the bootstrap method
   source code generated from the bootstrap method template processing
 
-- (optional, recommended) CMake, to compile the bootstrap method source code without manually locating `jni.h`
+- (optional, recommended) [CMake](https://cmake.org/), to compile the bootstrap method source code without manually
+  locating `jni.h`
 
 ### Obfuscation process
 
@@ -52,6 +55,79 @@ See the diagram below for a high-level overview of the obfuscation process.
 <p align="center">
     <img src=".github/obfuscation-process.drawio.png" alt="Overview of the obfuscation process">
 </p>
+
+<details>
+<summary>Explanation of the obfuscation process</summary>
+
+> The blue path represents the input file which gets obfuscated (or specific parts of it), while the orange path
+> represents the processing of the bootstrap method template. The provided template file is populated using information
+> gained in the obfuscation phase (most notably the symbol table and information about the bootstrap method) to produce
+> valid source code making up the native implementation of the bootstrap method.
+>
+> The generated source code will be compiled into a native library which is loaded by the obfuscated program at runtime.
+> As the compilation of the generated source code is out of scope for the obfuscator, this step will need to be executed
+> manually or scripted.
+>
+> In the end, two artifacts will together make up the obfuscated program: an obfuscated jar or class file and a native
+> library.
+</details>
+
+A simple example usage of the obfuscator is shown in the below command. `input.jar` is obfuscated while the example
+bootstrap method template is populated.
+
+`output.jar` will contain the obfuscated bytecode. The bootstrap method source code produced by the population of the
+template will be written to `System.out`, so it is redirected to a file, in this case to `native/bootstrap.c`.
+
+```shell
+java -jar indy-obfuscator-1.0-SNAPSHOT.jar input.jar \
+  -o output.jar \
+  --bsm-template native/bootstrap.c.ftl > native/bootstrap.c
+```
+
+<details>
+<summary>Further command-line arguments</summary>
+
+- `--bsm-owner` can be used to manually specify the class which should contain the bootstrap method stub in case the
+  owner cannot be determined automatically.
+
+  By default, the main class of a jar file is used. This option has no effect when the input is a class file.
+
+- `--bsm-name` can be used to manually specify the name of the bootstrap method in case a method with the same name
+  and signature already exists within the class that should contain the bootstrap method.
+
+- `-I` or `--include` can be used to specify one or more regular expressions matching fully qualified class names of
+  classes to be included in the obfuscation.
+
+  Non-confidential dependencies that require no obfuscation can and should be excluded from the obfuscation process
+  by limiting the obfuscation to application-specific classes.
+
+- `--help` can be used to show usage information and to list available command-line parameters.
+</details>
+
+The generated C source code making up the bootstrap method implementation must now be compiled to a shared library.
+A CMake setup is included in the [native](native) folder of the repository for convenience but the compilation can also
+be performed manually. An example usage of CMake to compile the `bootstrap.c` file output above is shown below.
+
+```shell
+cd native/cmake
+cmake ..
+make
+```
+
+Running the above commands should produce a shared library. The concrete name is platform-dependent: on UNIX systems for
+example, the library will be named `libbootstrap.so` while it will be called `bootstrap.dll` on Windows.
+
+Move the compiled library into the same folder as `output.jar`. The obfuscated program can now be launched using
+
+```shell
+java -jar output.jar
+```
+
+assuming that `input.jar` was an executable jar. Immediately after launch, the shared library will be loaded from the
+current working directory.
+
+See [obfuscate-self.sh](obfuscate-self.sh) for a script which builds the obfuscator, runs the obfuscator on its own jar
+file, builds the shared library, and invokes the obfuscated obfuscator to show the usage information.
 
 ## Project structure
 

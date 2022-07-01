@@ -94,7 +94,7 @@ public final class Arguments {
         names       = { "--bsm-owner", "--bootstrap-method-owner" },
         description = """
             Fully qualified name of a class from the jar file which should contain the bootstrap method.
-            Defaults to Main-Class of jar file if unspecified.""",
+            Defaults to the Main-Class of a jar file if unspecified. Has no effect if the input is a class file.""",
         paramLabel  = "<fqcn>")
     private String bootstrapMethodOwner;
 
