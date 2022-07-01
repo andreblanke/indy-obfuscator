@@ -13,6 +13,13 @@ import static org.objectweb.asm.Type.CHAR_TYPE;
 import static org.objectweb.asm.Type.getType;
 import static org.objectweb.asm.commons.Method.getMethod;
 
+/**
+ * Denotes a {@link ClassVisitor} that adds the bootstrap method definition along with library loading code for its
+ * native implementation to the class being visited.
+ * <p>
+ * The library loading code will be prepended to the class' static initializer {@code <clinit>}, creating the method
+ * if it does not yet exist.
+ */
 public final class BootstrappingClassVisitor extends ClassVisitor {
 
     /**
@@ -30,6 +37,13 @@ public final class BootstrappingClassVisitor extends ClassVisitor {
      */
     private boolean visitedClinit;
 
+    /**
+     * The handle containing information about the name and descriptor of the bootstrap method added by this
+     * {@code ClassVisitor}.
+     * <p>
+     * A {@link BootstrapMethodConflictException} will be thrown if the visited class already contains a method with the
+     * same name and descriptor.
+     */
     private final Handle bootstrapMethodHandle;
 
     /**
@@ -66,7 +80,7 @@ public final class BootstrappingClassVisitor extends ClassVisitor {
 
         final var methodVisitor = super.visitMethod(access, name, descriptor, signature, exceptions);
         if (!isClinit) {
-            return methodVisitor;
+            return methodVisitor; // Do not modify any methods except <clinit>.
         }
         return new ClinitMethodVisitor(api, methodVisitor, access, name, descriptor);
     }

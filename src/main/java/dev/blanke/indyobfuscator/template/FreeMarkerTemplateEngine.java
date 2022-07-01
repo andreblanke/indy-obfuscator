@@ -18,6 +18,8 @@ import static freemarker.template.Configuration.VERSION_2_3_31;
 
 /**
  * Denotes an implementation of the {@link TemplateEngine} interface which uses Apache FreeMarker as backend.
+ *
+ * @see <a href="https://freemarker.apache.org/">FreeMarker Java Template Engine</a>
  */
 public final class FreeMarkerTemplateEngine implements TemplateEngine {
 
@@ -54,6 +56,7 @@ public final class FreeMarkerTemplateEngine implements TemplateEngine {
         try (final var reader = Files.newBufferedReader(templatePath)) {
             final var template = new Template(templatePath.getFileName().toString(), reader, configuration);
 
+            // Allow access to org.objectweb.asm.Opcodes.* from inside the template via the 'Opcodes' variable.
             final var wrapper =
                 new BeansWrapperBuilder(template.getConfiguration().getIncompatibleImprovements()).build();
             final var opcodes = wrapper.getStaticModels().get(Opcodes.class.getName());
