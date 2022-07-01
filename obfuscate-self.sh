@@ -10,6 +10,7 @@ if [ ! -f "$(dirname "$0")/$JAR_ARTIFACT_PATH" ]; then
 fi
 
 java -jar "$JAR_ARTIFACT_PATH" "$JAR_ARTIFACT_PATH" -o "$OBF_ARTIFACT_PATH" \
+    -I dev\.blanke\.indyobfuscator\..* \
     --bsm-template 'native/bootstrap.c.ftl' > native/bootstrap.c
 
 cd native/cmake/
