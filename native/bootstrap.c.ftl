@@ -48,12 +48,6 @@ static jobject Resolve
 
     printf("Resolving %s#%s\n", ownerName, invokedName);
 
-    /*
-     * TODO: Fix FindClass returning NULL for some reason.
-     *       See:
-     *         - https://stackoverflow.com/questions/13263340/findclass-from-any-thread-in-android-jni
-     *         - https://android-developers.narkive.com/hEnu9mFP/jni-findclass-returns-null
-     */
     jclass  owner = (*env)->FindClass(env, ownerName);
     jstring name  = (*env)->NewStringUTF(env, invokedName);
 
