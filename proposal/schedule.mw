@@ -1,0 +1,47 @@
+title: Bachelor's Thesis Schedule
+
+#Thesis: #D9CAB3
+#Writing: #986D8E
+#Implementation: #87A8A4
+#Buffer: #EFE3D0
+
+group Bachelor's thesis schedule; assuming ~9 weeks of full time work #Thesis
+
+2022-07-25/5 days: Ch. 1. Introduction
+#Writing
+
+2022-07-30/9 days: Ch. 2. Background
+#Writing
+
+2022-08-08/1 week: Ch. 3. Implementation
+#Writing
+
+2022-08-15/10 days: Benchmarking
+#Implementation
+
+2022-08-21/8 days: Ch. 4.1. Performance Overhead
+#Writing
+
+2022-08-29/3 days: Ch. 4.2 Bytecode Size Inflation
+#Writing
+
+2022-09-01/2 days: Ch. 4.3.1 Ease of Recognition
+#Writing
+
+2022-09-03/6 days: Dynamic Analysis Proof of Concept
+#Implementation
+
+2022-09-07/5 days: Ch. 4.2.3 Attack Resilience
+#Writing
+
+2022-09-12/4 days: Ch. 5. Related Work
+#Writing
+
+2022-09-16/4 days: Ch. 6. Conclusion
+#Writing
+
+2022-09-20/4 days: Revision & Proof Reading
+#Writing
+
+2022-09-24/7 days: Buffer
+#Buffer  

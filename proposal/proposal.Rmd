@@ -1,0 +1,221 @@
+---
+title: |
+  | Extending and Evaluating a Control Flow
+  | Obfuscation Technique for JVM Applications
+  | Utilizing `invokedynamic` with Native Bootstrapping
+subtitle: _Bachelor's Thesis Proposal_
+author: "Andre Blanke"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  bookdown::pdf_document2:
+    extra_dependencies:
+      - enumitem
+    toc: false
+    number_sections: true
+bibliography: proposal.bib
+urlcolor: blue
+fontsize: 12pt
+papersize: a4
+header-includes:
+  # Required for multiline captions
+  - \usepackage[justification=centering]{caption}
+---
+
+```{r echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE, fig.align = "center");
+```
+
+# Introduction
+
+Obfuscation techniques are an important tool to make malicious reverse engineering attempts of software harder
+and more time consuming. These techniques are often employed to protect trade secrets, intellectual property
+and program integrity.
+
+Even higher importance is placed on the usage of obfuscation techniques when the software is deployed in an environment
+controlled by a trusted user of the software (e.g. to a personal computer as opposed to a microcontroller for example)
+for the prevention of so-called man-at-the-end (MATE) attacks as coined by [@falcarin11].
+
+Programming languages compiled to high-level bytecode such as Java Virtual Machine (JVM) bytecode instead of machine
+code are especially vulnerable to such attacks, as the former is more structured and thus allows easier modification.
+
+A variety of obfuscation techniques exist, some of which, such as symbol scrambling [@chan04], remove information in an
+irreversible way.
+Other aspects, like the interprocedural control flow graph of a program, are harder to obfuscate. Keeping this
+information intact allows an attacker to gain great insight into the architecture and inner workings of an application.
+
+Java 7 saw the introduction of the `invokedynamic` instruction which allows the invocation of methods without directly
+specifying the target call site inside the bytecode, instead delegating execution to a so-called bootstrap method in
+order to determine the call site at runtime rather than compile-time.
+The instruction enables dynamic dispatch behavior similar to reflection but in a more performant way because the call
+site can be accessed directly after its initial extraction from the bootstrap method as illustrated by [@ivanov15, 15.].
+These properties have proven useful for call graph obfuscation efforts.
+
+A novel obfuscation technique proposed by
+[@wood21] utilizing `invokedynamic` implements the bootstrap method inside a native library and replaces regular
+`invoke*` instructions with `invokedynamic` ones, hindering static analysis attempts.
+Outsourcing the bootstrap method implementation to native code increases the level of obfuscation and enables the
+application of further obfuscation methods going beyond techniques available for the JVM. It also prevents analysis of
+the bootstrap method bytecode with the help of established tools in the ecosystem.
+
+The proposed bachelor's thesis would primarily focus on this obfuscation technique in an aim to create an implementation
+of it since none is openly available at the moment. Once a basic implementation is finished, it will be extended further
+and evaluated.
+
+# Problem
+
+While a proof-of-concept has been developed for the novel obfuscation technique proposed by [@wood21],
+no implementation of it has been released which hinders further benchmarking attempts that are needed in order to judge
+its performance impact in a larger context: what are the performance implications when applying this technique to an
+input program, especially across a broader variety of JVM distributions and JIT compilers? Does the obfuscation lead to
+an inflation in bytecode size and---if so---to what extend?
+
+In addition to the lack of an implementation, the developed technique does not yet fully exhaust its potential and can
+be further extended to not only cover obfuscation of the call graph by also including the obfuscation of field access
+instructions (`getfield`, `putfield`, `getstatic`, and `putstatic`) instead of just method invocations as mentioned
+in the future works section of the research paper.
+
+A different area that is only briefly mentioned by the paper is the effectiveness of the the technique which should
+also be evaluated further, seeking to answer research questions such as "How easy is it to identify the used
+obfuscation technique and understand what transformation have been applied to the obfuscated code?" and "How complex
+are attempts at bypassing the obfuscation technique, once understood?".
+
+# Solution Approach
+
+## Implementation
+
+The primary goal of the bachelor's thesis will lay on the implementation of an open-source tool capable of performing
+the proposed obfuscation on single classes as well as entire JAR files using the ASM bytecode engineering library.
+[@bruneton11]
+
+Figure \@ref(fig:process-diagram) gives an overview of the planned obfuscation process. Two inputs will be required by
+the obfuscation tool: a JAR or class file to be obfuscated and a template for the bootstrap method which is populated
+using the symbol table built in the second pass. Compilation of the processed template is outside the scope of the
+tool due to reasons outlined in section \ref{objectives-and-limitations}.
+
+(ref:process-diagram-cap) High-level overview of the obfuscation process.
+  \linebreak The first pass over the input class files implements the extended functionality to replace field access
+             instructions with `invoke*` instructions which are then included in the second pass.
+
+```{r process-diagram, fig.cap="(ref:process-diagram-cap)"}
+knitr::include_graphics("process.png")
+```
+
+## Extension
+
+The planned extension of the obfuscation effort to include field accesses to increase the provided level of indirection
+will be achieved through the generation of synthetic getter and setter methods. Field access instructions will be
+replaced with a method invocation to their respective getters and setters. No further steps are necessary when
+performing this bytecode transformation in the first pass of the class files before the main obfuscation pass,
+as the generated `invoke*` instructions will be treated like any other method invocation present in the original
+bytecode and replaced by an equivalent `invokedynamic` instruction.
+
+Introducing the additional synthetic methods will lead to an inflation in bytecode size which should be measured by
+comparing the size of the input file with that of the obfuscated output file.
+
+## Evaluation
+
+Open research questions regarding the performance implications of the obfuscation technique on input JAR files will be
+approached through the use of benchmarks using the Java Microbenchmark Harness which is part of [@jmh].
+Care must be taken when selecting the input JAR files to use for the benchmark, as they and their dependencies must be
+compiled for newer Java versions. Reasons for this are outlined in section \ref{objectives-and-limitations}.
+While no concrete libraries of applications have been chosen for their usage in benchmarks yet, reusing ones picked for
+benchmarking purposes by other obfuscation techniques might allow some level of comparability.
+
+The ease of identification will be judged by comparing the original bytecode with its obfuscated version. To determine
+the complexity of an attack on the technique, an attempt at bypassing it will be made using dynamic analysis.
+As the bootstrap method implementation resides in native code which presents a harder target than code running on the
+JVM, it seems natural to target the interface between the two in search for a weakness.
+
+# Related Work
+
+An attempt at hiding the interprocedural control flow graph of JVM applications has been made by [@pizzolotto18] through
+the translation of selected portions of program bytecode into native libraries but introduced a performance penalty
+between 5% and 21% by doing so, as the method relies heavily on reflective calls which introduce a certain overhead.
+
+[@fukuda14] proposes an obfuscation technique intended to confuse debugging tools through the addition or removal of
+arguments from `MethodHandle` instances within the bootstrap method.
+
+Various implementations of obfuscation techniques making use of the substitution of `invoke*` instructions with
+`invokedynamic` exist, both open-source [@obfuscator] and commercial [@klassmaster], but none of them implement the
+bootstrap method in native code.
+No associated research papers seem to exist for either of the two projects.
+
+# Objectives and Limitations
+
+For simplicity reasons, the initial implementation of the tool will likely be limited to support JVM bytecode emitted
+by newer versions of Java compilers, as bytecode targeting older versions of the class file format does not necessarily
+contain stack map frames. While these class files can still be correctly loaded and verified by JVMs, the missing stack
+map frames pose an issue when `invokedynamic` instructions are introduced, as that requires raising the bytecode major
+version to the point where stack map frames become mandatory. ASM is capable of computing the stack map frames but
+requires loading the classes using `Class.forName` in certain situations, which in turn would require loading the input
+JAR or class file and any potential dependencies using a custom class loader, complicating the implementation.
+
+A different area that is out of scope for the obfuscation tool is covering the entire functionality of the toolchain
+required for the compilation of the native library containing a bootstrap method implementation. This includes the
+invocation of a compiler from within the tool. Instead, the tool should provide templating capabilities to allow for
+the production of valid source files in a user-chosen language by combining a template file with information obtained
+in the obfuscation pass.
+The last necessary compilation step would be left to the user of the obfuscation tool.
+
+# Preliminary Outline
+
+\setlist[enumerate]{label*=\arabic*.}
+
+\begin{enumerate}
+    \item Introduction
+    \item Background
+    \begin{enumerate}
+        \item Obfuscation Techniques
+        \item Java Native Interface
+        \item InvokeDynamic
+        \item Proposed Technique
+    \end{enumerate}
+    \item Implementation
+    \begin{enumerate}
+        \item Extension
+    \end{enumerate}
+    \item Analysis
+    \begin{enumerate}
+        \item Performance Overhead
+        \item Bytecode Size Inflation
+        \item Obfuscation Level
+        \begin{enumerate}
+            \item Ease of Recognition
+            \item Attack Resilience
+        \end{enumerate}
+    \end{enumerate}
+    \item Related Work
+    \item Conclusion
+\end{enumerate}
+
+\newpage
+# Schedule and Risk Analysis
+
+```{r out.width="140%", out.extra="angle=90"}
+knitr::include_graphics("schedule.png")
+```
+
+\newpage
+# References {.unnumbered}
+
+<div id="refs"></div>
+
+\vspace{6cm}
+
+\begin{center}
+     \begin{tabular}{l p{0.1\textwidth} r}
+       \cline{1-1} \cline{3-3}
+       \begin{minipage}[t]{0.4\textwidth}
+         \centering
+         Supervisor\\(Title First name Last name)
+         \end{minipage}
+&
+         \begin{minipage}[t]{0.2\textwidth}
+         \end{minipage}
+&
+         \begin{minipage}[t]{0.4\textwidth}
+           \centering
+           Student\\(First name Last name)
+         \end{minipage}
+     \end{tabular}
+\end{center}

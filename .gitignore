@@ -1,2 +1,4 @@
 # Dolphin file explorer directory-specific settings
 .directory
+
+.Rhistory
