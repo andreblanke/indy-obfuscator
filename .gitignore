@@ -1,18 +1,2 @@
-# IntelliJ IDEA
-**/.idea/*
-!/.idea/dictionaries
-*.iml
-
-# Processed bootstrap.c.ftl files
-/native/bootstrap.c
-
-*.out
-*.so
-
-hs_err_pid*.log
-
-# Maven
-/target/
-/dependency-reduced-pom.xml
-
+# Dolphin file explorer directory-specific settings
 .directory
