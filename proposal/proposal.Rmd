@@ -97,7 +97,7 @@ tool due to reasons outlined in section \ref{objectives-and-limitations}.
              instructions with `invoke*` instructions which are then included in the second pass.
 
 ```{r process-diagram, fig.cap="(ref:process-diagram-cap)"}
-knitr::include_graphics("process.png")
+knitr::include_graphics("../diagrams/obfuscation-overview.png")
 ```
 
 ## Extension

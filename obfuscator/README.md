@@ -53,7 +53,7 @@ required for this:
 See the diagram below for a high-level overview of the obfuscation process.
 
 <p align="center">
-    <img src=".github/obfuscation-process.drawio.png" alt="Overview of the obfuscation process">
+    <img src="../diagrams/obfuscation-overview.png" alt="Overview of the obfuscation process">
 </p>
 
 <details>
