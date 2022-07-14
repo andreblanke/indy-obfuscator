@@ -1,0 +1,35 @@
+#!/usr/bin/env expect
+
+# The analyzed program might go an indefinite amount of time between breakpoint hits.
+set timeout -1
+
+spawn jdb -classpath . InvokeDynamic
+expect ">"
+
+send "stop in java.lang.invoke.ConstantCallSite.<init>(java.lang.invoke.MethodHandle)\n"
+expect "Deferring breakpoint java.lang.invoke.ConstantCallSite.<init>(java.lang.invoke.MethodHandle)."
+expect "It will be set after the class is loaded."
+expect ">"
+
+send "run\n"
+
+set mappings [open "mappings.txt" w+]
+
+while 1 {
+    expect {
+        "Breakpoint hit:" {
+            # Assumes the target MethodHandle is an instance of DirectMethodHandle.
+            send "eval target.member\n"
+            expect {
+                -regexp {target.member = "([^\"]+)"} {
+                    puts $mappings "$expect_out(1,string)"
+                }
+            }
+            send "cont\n"
+        }
+        "The application exited" {
+            break
+        }
+    }
+}
+close $mappings
