@@ -28,15 +28,16 @@ knitr::opts_chunk$set(echo = FALSE, fig.align = "center");
 # Introduction
 
 Obfuscation techniques are an important tool to make malicious reverse engineering attempts of software harder
-and more time consuming. These techniques are often employed to protect trade secrets, intellectual property
+and more time-consuming. These techniques are often employed to protect trade secrets, intellectual property,
 and program integrity.
 
 Even higher importance is placed on the usage of obfuscation techniques when the software is deployed in an environment
 controlled by a trusted user of the software (e.g. to a personal computer as opposed to a microcontroller for example)
 for the prevention of so-called man-at-the-end (MATE) attacks as coined by [@falcarin11].
 
-Programming languages compiled to high-level bytecode such as Java Virtual Machine (JVM) bytecode instead of machine
-code are especially vulnerable to such attacks, as the former is more structured and thus allows easier modification.
+Programming languages compiled to high-level bytecode---such as Java Virtual Machine (JVM) bytecode instead of machine
+code---are especially vulnerable to MATE attacks, as JVM bytecode is more structured and thus allows easier modification
+when compared to machine code.
 
 A variety of obfuscation techniques exist, some of which, such as symbol scrambling [@chan04], remove information in an
 irreversible way.
@@ -47,7 +48,7 @@ Java 7 saw the introduction of the `invokedynamic` instruction which allows the 
 specifying the target call site inside the bytecode, instead delegating execution to a so-called bootstrap method in
 order to determine the call site at runtime rather than compile-time.
 The instruction enables dynamic dispatch behavior similar to reflection but in a more performant way because the call
-site can be accessed directly after its initial extraction from the bootstrap method as illustrated by [@ivanov15, 15.].
+site can be accessed directly after its initial extraction from the bootstrap method as illustrated by [@ivanov15].
 These properties have proven useful for call graph obfuscation efforts.
 
 A novel obfuscation technique proposed by
@@ -70,9 +71,9 @@ input program, especially across a broader variety of JVM distributions and JIT 
 an inflation in bytecode size and---if so---to what extend?
 
 In addition to the lack of an implementation, the developed technique does not yet fully exhaust its potential and can
-be further extended to not only cover obfuscation of the call graph by also including the obfuscation of field access
-instructions (`getfield`, `putfield`, `getstatic`, and `putstatic`) instead of just method invocations as mentioned
-in the future works section of the research paper.
+be further extended beyond obfuscation of the call graph itself: field access instructions (`getfield`, `putfield`,
+`getstatic`, and `putstatic`) may be included in the obfuscation effort by introducing additional method invocations,
+as mentioned in the future works section of the research paper.
 
 A different area that is only briefly mentioned by the paper is the effectiveness of the the technique which should
 also be evaluated further, seeking to answer research questions such as "How easy is it to identify the used
@@ -83,6 +84,7 @@ are attempts at bypassing the obfuscation technique, once understood?".
 
 ## Implementation
 
+<!-- TODO: Elaborate on obfuscation passes -->
 The primary goal of the bachelor's thesis will lay on the implementation of an open-source tool capable of performing
 the proposed obfuscation on single classes as well as entire JAR files using the ASM bytecode engineering library.
 [@bruneton11]
@@ -142,13 +144,25 @@ No associated research papers seem to exist for either of the two projects.
 
 # Objectives and Limitations
 
-For simplicity reasons, the initial implementation of the tool will likely be limited to support JVM bytecode emitted
-by newer versions of Java compilers, as bytecode targeting older versions of the class file format does not necessarily
-contain stack map frames. While these class files can still be correctly loaded and verified by JVMs, the missing stack
-map frames pose an issue when `invokedynamic` instructions are introduced, as that requires raising the bytecode major
-version to the point where stack map frames become mandatory. ASM is capable of computing the stack map frames but
-requires loading the classes using `Class.forName` in certain situations, which in turn would require loading the input
-JAR or class file and any potential dependencies using a custom class loader, complicating the implementation.
+<!--
+  Update to the Java 6 class file specification mentioning the chnages to verification of class files starting with
+  bytecode version 50.
+
+  - https://jcp.org/aboutJava/communityprocess/maintenance/jsr924/index2.html
+  - https://jcp.org/en/jsr/detail?id=202
+-->
+For simplicity reasons, the obfuscation tool will likely be limited to support JVM bytecode emitted by newer versions
+of Java compilers (class file major version $\geq$ 50), as bytecode targeting older versions of the class file format
+does not necessarily contain stack map frames.
+<!--
+  Required class file version for invokedynamic instructions was tested manually with Krakatau using
+  attack/InvokeDynamic.j by invoking "java -classpath . InvokeDynamic". 
+-->
+While these class files can still be correctly loaded and verified by JVMs, the missing stack map frames pose an issue
+when `invokedynamic` instructions are introduced, as that requires raising the bytecode major version to 51 or higher,
+making stack map frames mandatory. ASM is capable of computing the stack map frames but requires loading the
+classes using `Class.forName` in certain situations, which in turn would require loading the input JAR or class file
+and any potential dependencies using a custom class loader, complicating the implementation.
 
 A different area that is out of scope for the obfuscation tool is covering the entire functionality of the toolchain
 required for the compilation of the native library containing a bootstrap method implementation. This includes the
