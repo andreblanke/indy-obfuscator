@@ -21,7 +21,7 @@ header-includes:
   - \usepackage[justification=centering]{caption}
 ---
 
-```{r echo=FALSE}
+```{r include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, fig.align = "center");
 ```
 
@@ -174,7 +174,7 @@ The last necessary compilation step would be left to the user of the obfuscation
     \begin{enumerate}
         \item Extension
     \end{enumerate}
-    \item Analysis
+    \item Evaluation
     \begin{enumerate}
         \item Performance Overhead
         \item Bytecode Size Inflation
