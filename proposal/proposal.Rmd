@@ -12,7 +12,7 @@ output:
       - enumitem
     toc: false
     number_sections: true
-bibliography: proposal.bib
+bibliography: "../bibliography.bib"
 urlcolor: blue
 fontsize: 12pt
 papersize: a4
