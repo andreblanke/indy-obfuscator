@@ -1,0 +1,112 @@
+---
+title: |
+  | Extending and Evaluating a Control Flow
+  | Obfuscation Technique for JVM Applications
+  | Utilizing `invokedynamic` with Native Bootstrapping
+subtitle: _Bachelor's Thesis_
+author: "Andre Blanke"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+abstract: "TODO"
+output:
+  bookdown::pdf_document2:
+    extra_dependencies:
+      - lipsum
+    toc: true
+    number_sections: true
+    includes:
+      in_header: columns.tex
+bibliography: "../bibliography.bib"
+---
+
+```{r include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, tidy.opts = list(width.cutoff = 60), tidy = TRUE)
+```
+
+# Motivation
+
+# Background
+
+## Obfuscation
+
+## Java Native Interface
+
+## `invokedynamic`
+
+## Proposed Technique
+
+# Implementation
+
+## Obfuscation Process
+
+<!--
+  Consider implementing syntax highlighting for Jasmin/Krakatau:
+  - https://stackoverflow.com/questions/48507307/how-to-add-a-new-language-for-highlight-in-bookdown
+  - https://github.com/funatsufumiya/jasmin-sublime
+  - https://github.com/jgm/skylighting/tree/master/skylighting-core/xml
+-->
+
+<!--
+  Consider using columns to align the two code blocks:
+  - https://bookdown.org/yihui/rmarkdown-cookbook/multi-column.html
+-->
+
+<!--
+  Support for captioning and referencing code chunks:
+  - https://github.com/rstudio/bookdown/issues/238
+  - https://stackoverflow.com/questions/50702942/does-rmarkdown-allow-captions-and-references-for-code-chunks
+-->
+
+```{jasmin, attr.source=".numberLines"}
+.class public HelloWorld
+.super java/lang/Object
+
+.method public static main : ([Ljava/lang/String;)V
+    .stack  2
+    .locals 1
+    getstatic java/lang/System out Ljava/io/PrintStream;
+    ldc "Hello, world!"
+    invokevirtual java/io/PrintStream println (Ljava/lang/Object;)V
+    return
+.end method
+```
+
+```{jasmin, attr.source=".numberLines", fig.cap=""}
+.class public HelloWorld
+.super java/lang/Object
+
+.method public static main : ([Ljava/lang/String;)V
+    .stack  2
+    .locals 1
+    invokestatic HelloWorld out ()Ljava/io/PrintStream;
+    ldc "Hello, world!"
+    invokevirtual java/io/PrintStream println (Ljava/lang/Object;)V
+    return
+.end method
+
+.method private static synthetic out : ()Ljava/io/PrintStream;
+    .stack  1
+    .locals 0
+    getstatic java/lang/System out Ljava/io/PrintStream;
+    areturn
+.end method
+```
+
+## Limitations
+
+# Evaluation
+
+## Performance Overhead
+
+## Bytecode Size Inflation
+
+## Obfuscation Level
+
+### Ease of Recognition
+
+### Attack Resilience
+
+# Future Work
+
+# Conclusion
+
+# References
