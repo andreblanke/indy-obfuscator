@@ -95,19 +95,19 @@ populated using the symbol table built in step 2.
 **Step 1** is optional and responsible for the inclusion of field access instructions in the obfuscation effort to
 increase the provided level of indirection, serving as an extension to the technique proposed by [@wood21].
 Obfuscation of field accesses is achieved through the generation of synthetic getter and setter methods which are
-invoked in place of the original instruction.  
+invoked in place of the original instruction.
 No further steps are necessary when performing this bytecode transformation as the first step before the main
 obfuscation pass, as the generated `invoke*` instructions will be treated like any other method invocation present in
-the original bytecode and replaced by an equivalent `invokedynamic` instruction.  
+the original bytecode and replaced by an equivalent `invokedynamic` instruction.
 Introducing the additional synthetic methods will lead to an inflation in bytecode size which should be measured by
 comparing the size of the input file with that of the obfuscated output file.
 
 Following the optional pre-processing of field instructions in the first step, obfuscation **step 2** is responsible
 for the replacement of `invoke*` instructions with `invokedynamic` ones, making up the largest amount of bytecode
-transformation operations.  
+transformation operations.
 A unique name is assigned to each encountered method invocation instruction and the association is stored in the symbol
 table. The unique name is present in the bytecode of the `invokedynamic` instruction and is used by the bootstrap
-method implementation to return the correct `CallSite` that was associated with it in the original bytecode.  
+method implementation to return the correct `CallSite` that was associated with it in the original bytecode.
 The symbol table built from this obfuscation step is passed to the input bootstrap method template using a template
 engine for the generation of the bootstrap method source code. Automatic compilation of the processed template is
 outside the scope of the tool due to reasons outlined in section \ref{objectives-and-limitations}.
@@ -120,7 +120,7 @@ obfuscated (and thus assumes the bootstrap method implementation is already avai
 (ref:process-diagram-cap) High-level overview of the obfuscation process.
 
 ```{r process-diagram, fig.cap="(ref:process-diagram-cap)"}
-knitr::include_graphics("../diagrams/obfuscation-overview.png")
+knitr::include_graphics("../figures/obfuscation-overview.png")
 ```
 
 ## Evaluation
@@ -166,7 +166,7 @@ of Java compilers (class file major version $\geq$ 50), as bytecode targeting ol
 does not necessarily contain stack map frames.
 <!--
   Required class file version for invokedynamic instructions was tested manually with Krakatau using
-  attack/InvokeDynamic.j by invoking "java -classpath . InvokeDynamic". 
+  attack/InvokeDynamic.j by invoking "java -classpath . InvokeDynamic".
 -->
 While these class files can still be correctly loaded and verified by JVMs, the missing stack map frames pose an issue
 when `invokedynamic` instructions are introduced, as that requires raising the bytecode major version to 51 or higher,
