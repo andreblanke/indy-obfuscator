@@ -51,12 +51,11 @@ The instruction enables dynamic dispatch behavior similar to reflection but in a
 site can be accessed directly after its initial extraction from the bootstrap method as illustrated by [@ivanov15].
 These properties have proven useful for call graph obfuscation efforts.
 
-A novel obfuscation technique proposed by
-[@wood21] utilizing `invokedynamic` implements the bootstrap method inside a native library and replaces regular
-`invoke*` instructions with `invokedynamic` ones, hindering static analysis attempts.
-Outsourcing the bootstrap method implementation to native code increases the level of obfuscation and enables the
-application of further obfuscation methods going beyond techniques available for the JVM. It also prevents analysis of
-the bootstrap method bytecode with the help of established tools in the ecosystem.
+A novel obfuscation technique proposed by [@wood21] utilizing `invokedynamic` implements the bootstrap method inside a
+native library and replaces regular `invoke*` instructions with `invokedynamic` ones, hindering static analysis
+attempts. Outsourcing the bootstrap method implementation to native code increases the level of obfuscation and enables
+the application of further obfuscation methods going beyond techniques available for the JVM. It also prevents analysis
+of the bootstrap method bytecode with the help of established tools in the JVM ecosystem.
 
 The proposed bachelor's thesis would primarily focus on this obfuscation technique in an aim to create an implementation
 of it since none is openly available at the moment. Once a basic implementation is finished, it will be extended further
@@ -67,18 +66,35 @@ and evaluated.
 While a proof-of-concept has been developed for the novel obfuscation technique proposed by [@wood21],
 no implementation of it has been released which hinders further benchmarking attempts that are needed in order to judge
 its performance impact in a larger context: what are the performance implications when applying this technique to an
-input program, especially across a broader variety of JVM distributions and JIT compilers? Does the obfuscation lead to
-an inflation in bytecode size and---if so---to what extend?
+input program, especially across a broader variety of JVM distributions and JIT compilers whose optimization behavior
+regarding `invokedynamic` might differ?
 
 In addition to the lack of an implementation, the developed technique does not yet fully exhaust its potential and can
 be further extended beyond obfuscation of the call graph itself: field access instructions (`getfield`, `putfield`,
-`getstatic`, and `putstatic`) may be included in the obfuscation effort by introducing additional method invocations,
-as mentioned in the future works section of the research paper.
+`getstatic`, and `putstatic`) may be included in the obfuscation effort by replacing them with invocations to synthetic
+accessor methods which will partake in the subsequent main obfuscation step.  
+How large is the difference in performance when this extension is introduced compared to the performance of the
+obfuscation technique without it?
 
-A different area that is only briefly mentioned by the paper is the effectiveness of the the technique which should
-also be evaluated further, seeking to answer research questions such as "How easy is it to identify the used
-obfuscation technique and understand what transformation have been applied to the obfuscated code?" and "How complex
-are attempts at bypassing the obfuscation technique, once understood?".
+The need for an additional native library containing the bootstrap method implementation along with the generation of
+new methods when considering the extension for field accesses will reflect in the total size of the artifacts produced
+by the obfuscation process.  
+This increase in application size may be more or less significant depending on the type of deployment: containerized
+and/or user-facing software --- the latter being the main use case for obfuscation --- is preferably kept as small as
+possible, so the impact of the obfuscation process on application size should be measured by comparing the size of the
+original input to the size of the obfuscated application (considering both the exclusion and inclusion of field
+accesses in the obfuscation process). To what extend does the obfuscation lead to an increase in application size?  
+Some executable formats used by virtual machines, such as the DEX format of the Dalvik VM built into Android
+[@multidex], are limited regarding the amount of methods an application may contain, so how many additional synthetic
+accessors can one expect when including the obfuscating of field access instructions?
+
+Another area that is only briefly explored by the original paper but which should also be evaluated is the effectiveness
+of the technique. How can one bypass the obfuscation technique using dynamic analysis and what is the complexity of it?
+To a lesser extent: how easy is it for an attacker to identify the used obfuscation technique and to understand what
+kinds of transformations have been applied to the code?
+
+Answers to all of the above research questions will be used to draw a conclusion regarding the quality of the proposed
+obfuscation technique.
 
 # Solution Approach
 
@@ -126,7 +142,9 @@ knitr::include_graphics("../figures/obfuscation-overview.png")
 ## Evaluation
 
 Open research questions regarding the performance implications of the obfuscation technique on input JAR files will be
-approached through the use of benchmarks using the Java Microbenchmark Harness which is part of [@jmh].
+approached through the use of macrobenchmarks, either by using an established benchmark suite such as DaCapo [@dacapo06]
+or by obfuscating an increasing amount of well-covered methods from the test suite of a set of open-source libraries as
+done by [@pizzolotto18].  
 Care must be taken when selecting the input JAR files to use for the benchmark, as they and their dependencies must be
 compiled for newer Java versions. Reasons for this are outlined in section \ref{objectives-and-limitations}.
 While no concrete libraries of applications have been chosen for their usage in benchmarks yet, reusing ones picked for
@@ -134,8 +152,10 @@ benchmarking purposes by other obfuscation techniques might allow some level of 
 
 The ease of identification will be judged by comparing the original bytecode with its obfuscated version. To determine
 the complexity of an attack on the technique, an attempt at bypassing it will be made using dynamic analysis.
-As the bootstrap method implementation resides in native code which presents a harder target than code running on the
-JVM, it seems natural to target the interface between the two in search for a weakness.
+As all applications obfuscated using `invokedynamic`-based techniques will have to eventually instantiate one of the
+three implementation of the `CallSite` interface to return it from the bootstrap method, it seems natural to focus on
+this area in search for a way to record the call sites which are accessed, potentially circumventing the concept of the
+native bootstrap method.
 
 \newpage
 # Related Work
@@ -217,7 +237,7 @@ The last necessary compilation step would be left to the user of the obfuscation
 # Schedule and Risk Analysis
 
 ```{r out.width="140%", out.extra="angle=90"}
-knitr::include_graphics("schedule.png")
+knitr::include_graphics("../figures/schedule.png")
 ```
 
 \newpage
