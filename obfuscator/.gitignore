@@ -1,0 +1,7 @@
+# Processed bootstrap.c.ftl files
+/native/bootstrap.c
+
+*.out
+*.so
+
+hs_err_pid*.log

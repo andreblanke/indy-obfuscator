@@ -1,0 +1,10 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="InDyObfuscator help" type="Application" factoryName="Application">
+    <option name="MAIN_CLASS_NAME" value="dev.blanke.indyobfuscator.InDyObfuscator" />
+    <module name="obfuscator" />
+    <option name="PROGRAM_PARAMETERS" value="--help" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

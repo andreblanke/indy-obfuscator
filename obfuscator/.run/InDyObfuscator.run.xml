@@ -1,0 +1,12 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="InDyObfuscator" type="Application" factoryName="Application">
+    <output_file path="$PROJECT_DIR$/native/bootstrap.c" is_save="true" />
+    <option name="MAIN_CLASS_NAME" value="dev.blanke.indyobfuscator.InDyObfuscator" />
+    <module name="obfuscator" />
+    <option name="PROGRAM_PARAMETERS" value="$ProjectFileDir$/target/obfuscator-1.0-SNAPSHOT.jar -o $ProjectFileDir$/target/obfuscator-1.0-SNAPSHOT-obf.jar -I dev\.blanke\.indyobfuscator\..*" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+      <option name="Maven.BeforeRunTask" enabled="true" file="$PROJECT_DIR$/pom.xml" goal="package -DskipTests" />
+    </method>
+  </configuration>
+</component>

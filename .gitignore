@@ -1,0 +1,8 @@
+# IntelliJ IDEA
+**/.idea/*
+!/.idea/dictionaries
+
+# Maven
+target/
+dependency-reduced-pom.xml
+
