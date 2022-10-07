@@ -13,11 +13,10 @@ native code.
 
 ## Usage
 
-### Dockerfile
+### With Docker
 
 ```shell
-docker build -t indy-obfuscator .
-docker run -it indy-obfuscator
+docker build -t indy-obfuscator . && docker run -it indy-obfuscator
 
 java -jar obfuscator.jar -- obfuscator.jar -o obfuscator-obf.jar -I dev.blanke.indyobfuscator.* > bootstrap.c
 
@@ -28,7 +27,9 @@ mv libbootstrap.so .. && cd ..
 java -jar obfuscator-obf.jar
 ```
 
-### Obtaining the obfuscator
+### Without Docker
+
+#### Obtaining the obfuscator
 
 This project uses [Apache Maven](https://maven.apache.org/) as its build system. To compile the obfuscator from source,
 first clone the repository and navigate to its root directory.
@@ -41,7 +42,7 @@ mvn package
 
 The packaged artifact will be located inside the `target` directory.
 
-### Additional prerequisites
+#### Prerequisites
 
 Due to the premise of the obfuscation technique, some non-Java related tools are required in addition to the obfuscator
 itself. These tools are used to build a shared library that can be accessed using JNI. The following programs will be
@@ -149,22 +150,33 @@ file, builds the shared library, and invokes the obfuscated obfuscator to show t
 The below project layout gives an overview over the most important files and folders within this repository.
 
 ```text
- ├─ native/
- │   ├─ cmake/            CMake build directory
- │   ├─ bootstrap.c.ftl   Sample bootstrap method template for C
- │   └─ debug.h           Utility functions for debugging JNI code
- └─ src/
-     ├─ main/java/dev/blanke/indyobfuscator/
-     │   ├─ mapping/
-     │   ├─ template/
-     │   ├─ visitor/
-     │   │   ├─ bootstrap/
-     │   │   ├─ field/
-     │   │   └─ obfuscation/
-     │   └─ InDyObfuscator.java
-     └─ test/java/dev/blanke/indyobfuscator/
-         ├─ util/
-         └─ InDyObfuscatorTest.java
+├─ java-agent/               Dynamic analysis Java agent
+│   └─ src/main/
+│       └─ java/dev/blanke/indyobfuscator/
+│           ├─ Arguments                 CLI arguments using Picocli
+│           ├─ BootstrapDecorator        Implements decorated BSM
+│           ├─ ClassFileTransformer      Changes indy instr. using ASM
+│           └─ DynamicAnalysisAgent      premain entrypoint
+├─ obfuscator/               Main obfuscator source code
+│   ├─ native/
+│   │   ├─ cmake/            CMake build for processed BSM template
+│   │   └─ debug.h           Utility functions for debugging JNI code
+│   └─ src/main/
+│       ├─ java/dev/blanke/indyobfuscator/
+│       │   ├─ mapping/                  Symbol mapping implementation
+│       │   ├─ template/                 BSM template processing
+│       │   ├─ obfuscation/              Bytecode obfuscation using ASM
+│       │   │   ├─ bootstrap/            3rd obfuscation step
+│       │   │   ├─ field/                1st obfuscation step
+│       │   │   └─ obfuscation/          2nd obfuscation step
+│       │   ├─ Arguments.java            CLI arguments using Picocli
+│       │   ├─ InDyObfuscator.java       Main class
+│       │   └─ InputType.java            Input JAR/class file handling
+│       └─ resources/bootstrap.c.ftl     Default BSM template
+└─ obfuscator-api/           Optional public API for applications
+    └─ src/main/
+        └─ java/dev/blanke/indyobfuscator/
+            └─ Obfuscate.java            Annotation to limit obfuscation
 ```
 
 ## Related projects
